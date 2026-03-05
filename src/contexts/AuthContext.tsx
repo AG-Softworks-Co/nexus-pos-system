@@ -259,12 +259,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = async () => {
     console.log('AuthProvider: Attempting logout...');
-    setIsAuthenticating(true);
     await supabase.auth.signOut();
-    // setUser(null); // onAuthStateChange lo hará, pero hacerlo aquí es más rápido para la UI
-    // setIsAuthenticating(false); // onAuthStateChange/handleUserSession también lo afectará si setLoading se toca ahí
-    // navigate('/login', { replace: true }); // onAuthStateChange/handleUserSession lo hará
-    // Simplemente con signOut, onAuthStateChange debería limpiar todo.
+    // onAuthStateChange se encargará de limpiar el estado y redirigir.
   };
 
   const refreshUser = useCallback(async (): Promise<User | null> => {
