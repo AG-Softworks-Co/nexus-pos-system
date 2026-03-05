@@ -53,7 +53,7 @@ const Sales: React.FC = () => {
     setLoading(true);
     try {
       let salesData = [];
-      
+
       if (filters.historyFilter === 'deleted') {
         // Fetch deleted sales from history
         const { data: historyData, error: historyError } = await supabase
@@ -63,7 +63,7 @@ const Sales: React.FC = () => {
           .order('creado_en', { ascending: false });
 
         if (historyError) throw historyError;
-        
+
         // Transform history data to match sales structure
         salesData = historyData?.map(history => ({
           ...history.datos_anteriores,
@@ -103,22 +103,22 @@ const Sales: React.FC = () => {
           .order('creada_en', { ascending: false });
 
         if (error) throw error;
-        
+
         // Fetch return information for these sales
         const saleIds = data?.map(sale => sale.id) || [];
         let returnsData = [];
-        
+
         if (saleIds.length > 0) {
           const { data: returns, error: returnsError } = await supabase
             .from('devoluciones')
             .select('venta_id, monto_devolucion')
             .in('venta_id', saleIds)
             .eq('estado', 'aprobada');
-            
+
           if (returnsError) throw returnsError;
           returnsData = returns || [];
         }
-        
+
         // Mark sales that have returns
         salesData = data?.map(sale => {
           const saleReturns = returnsData.filter(r => r.venta_id === sale.id);
@@ -129,7 +129,7 @@ const Sales: React.FC = () => {
           };
         }) || [];
       }
-      
+
       setSales(salesData);
     } catch (err: any) {
       console.error('Error fetching sales:', err);
@@ -231,9 +231,8 @@ const Sales: React.FC = () => {
       ws['!cols'] = colWidths;
 
       // Generate file name with date range
-      const fileName = `ventas_${formatDateForExcel(startDate.toISOString()).split(' ')[0]}_${
-        formatDateForExcel(endDate.toISOString()).split(' ')[0]
-      }.xlsx`;
+      const fileName = `ventas_${formatDateForExcel(startDate.toISOString()).split(' ')[0]}_${formatDateForExcel(endDate.toISOString()).split(' ')[0]
+        }.xlsx`;
 
       XLSX.writeFile(wb, fileName);
       setShowExportModal(false);
@@ -254,27 +253,27 @@ const Sales: React.FC = () => {
     if (filters.historyFilter === 'edited' && (!sale.version || sale.version <= 1) && !sale._isDeleted) {
       return false;
     }
-    
-    const matchesSearch = !filters.searchQuery || 
+
+    const matchesSearch = !filters.searchQuery ||
       sale.id.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
       sale.usuario.nombre_completo.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
       sale.cliente?.nombre_completo.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
       sale.cliente?.telefono?.includes(filters.searchQuery);
-    
+
     let matchesDate = true;
     const saleDate = new Date(sale.creada_en);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     const weekAgo = new Date(today);
     weekAgo.setDate(weekAgo.getDate() - 7);
-    
+
     const monthAgo = new Date(today);
     monthAgo.setMonth(monthAgo.getMonth() - 1);
-    
+
     if (filters.dateFilter === 'today') {
       matchesDate = saleDate >= today;
     } else if (filters.dateFilter === 'yesterday') {
@@ -284,13 +283,13 @@ const Sales: React.FC = () => {
     } else if (filters.dateFilter === 'month') {
       matchesDate = saleDate >= monthAgo;
     }
-    
+
     const matchesStatus = filters.statusFilter === 'all' || sale.estado === filters.statusFilter;
     const matchesPayment = filters.paymentFilter === 'all' || sale.metodo_pago === filters.paymentFilter;
-    const matchesDelivery = filters.deliveryFilter === 'all' || 
+    const matchesDelivery = filters.deliveryFilter === 'all' ||
       (filters.deliveryFilter === 'delivery' && sale.es_domicilio) ||
       (filters.deliveryFilter === 'local' && !sale.es_domicilio);
-    
+
     return matchesSearch && matchesDate && matchesStatus && matchesPayment && matchesDelivery;
   });
 
@@ -305,10 +304,10 @@ const Sales: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Historial de Ventas</h1>
-        
-        <div className="flex gap-2">
+      <div className="sales-page-header flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <h1 className="sales-page-title text-2xl font-bold text-gray-900">Historial de Ventas</h1>
+
+        <div className="sales-page-actions flex gap-2">
           <button
             onClick={() => handleViewReturns()}
             className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
@@ -316,10 +315,10 @@ const Sales: React.FC = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Ver Devoluciones
           </button>
-          
-          <button 
-          onClick={() => setShowExportModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Exportar a Excel

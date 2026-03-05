@@ -1,5 +1,5 @@
-import React from 'react';
-import { Search } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, SlidersHorizontal, X, Calendar, CreditCard, Truck, Archive, ChevronDown } from 'lucide-react';
 
 interface SalesFiltersProps {
   searchQuery: string;
@@ -16,6 +16,17 @@ interface SalesFiltersProps {
   onHistoryFilterChange: (value: string) => void;
 }
 
+/* Helper: count active filters (non-"all" / non-"active") */
+const countActiveFilters = (
+  dateFilter: string,
+  statusFilter: string,
+  paymentFilter: string,
+  deliveryFilter: string,
+  historyFilter: string
+) =>
+  [dateFilter !== 'all', statusFilter !== 'all', paymentFilter !== 'all', deliveryFilter !== 'all', historyFilter !== 'active']
+    .filter(Boolean).length;
+
 const SalesFilters: React.FC<SalesFiltersProps> = ({
   searchQuery,
   onSearchChange,
@@ -30,79 +41,159 @@ const SalesFilters: React.FC<SalesFiltersProps> = ({
   historyFilter,
   onHistoryFilterChange,
 }) => {
+  const [showFilters, setShowFilters] = useState(false);
+  const activeCount = countActiveFilters(dateFilter, statusFilter, paymentFilter, deliveryFilter, historyFilter);
+
+  const handleClearFilters = () => {
+    onDateFilterChange('all');
+    onStatusFilterChange('all');
+    onPaymentFilterChange('all');
+    onDeliveryFilterChange('all');
+    onHistoryFilterChange('active');
+  };
+
   return (
-    <div className="bg-white p-4 shadow-sm rounded-lg border border-gray-200">
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
-          </div>
+    <div className="sales-filters-root">
+      {/* ── Search bar ── */}
+      <div className="sales-search-row">
+        <div className="sales-search-wrapper">
+          <Search className="sales-search-icon" />
           <input
             type="text"
-            className="pl-10 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+            className="sales-search-input"
             placeholder="Buscar por ID, vendedor o cliente..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
           />
+          {searchQuery && (
+            <button
+              className="sales-search-clear"
+              onClick={() => onSearchChange('')}
+              aria-label="Limpiar búsqueda"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
-        
-        <div className="flex flex-wrap gap-2">
-          <select
-            className="focus:ring-primary-500 focus:border-primary-500 h-full py-2 pl-3 pr-7 border-gray-300 bg-white text-gray-700 sm:text-sm rounded-md"
-            value={dateFilter}
-            onChange={(e) => onDateFilterChange(e.target.value)}
-          >
-            <option value="all">Todas las fechas</option>
-            <option value="today">Hoy</option>
-            <option value="yesterday">Ayer</option>
-            <option value="week">Esta semana</option>
-            <option value="month">Este mes</option>
-          </select>
-          
-          <select
-            className="focus:ring-primary-500 focus:border-primary-500 h-full py-2 pl-3 pr-7 border-gray-300 bg-white text-gray-700 sm:text-sm rounded-md"
-            value={statusFilter}
-            onChange={(e) => onStatusFilterChange(e.target.value)}
-          >
-            <option value="all">Todos los estados</option>
-            <option value="pagada">Pagada</option>
-            <option value="pendiente">Pendiente</option>
-            <option value="cancelada">Cancelada</option>
-          </select>
-          
-          <select
-            className="focus:ring-primary-500 focus:border-primary-500 h-full py-2 pl-3 pr-7 border-gray-300 bg-white text-gray-700 sm:text-sm rounded-md"
-            value={paymentFilter}
-            onChange={(e) => onPaymentFilterChange(e.target.value)}
-          >
-            <option value="all">Todos los pagos</option>
-            <option value="efectivo">Efectivo</option>
-            <option value="tarjeta">Tarjeta</option>
-            <option value="bancolombia">Bancolombia</option>
-            <option value="nequi">Nequi</option>
-            <option value="daviplata">Daviplata</option>
-          </select>
 
-          <select
-            className="focus:ring-primary-500 focus:border-primary-500 h-full py-2 pl-3 pr-7 border-gray-300 bg-white text-gray-700 sm:text-sm rounded-md"
-            value={historyFilter}
-            onChange={(e) => onHistoryFilterChange(e.target.value)}
-          >
-            <option value="active">Solo activas</option>
-            <option value="all">Todas las ventas</option>
-            <option value="edited">Solo editadas</option>
-            <option value="deleted">Solo eliminadas</option>
-          </select>
-          <select
-            className="focus:ring-primary-500 focus:border-primary-500 h-full py-2 pl-3 pr-7 border-gray-300 bg-white text-gray-700 sm:text-sm rounded-md"
-            value={deliveryFilter}
-            onChange={(e) => onDeliveryFilterChange(e.target.value)}
-          >
-            <option value="all">Todos los tipos</option>
-            <option value="local">En local</option>
-            <option value="delivery">Domicilios</option>
-          </select>
+        {/* Toggle filters (mobile) */}
+        <button
+          className="sales-filter-toggle"
+          onClick={() => setShowFilters(!showFilters)}
+          aria-expanded={showFilters}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          <span className="hidden sm:inline">Filtros</span>
+          {activeCount > 0 && (
+            <span className="sales-filter-badge">{activeCount}</span>
+          )}
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+
+      {/* ── Filter panel ── */}
+      <div className={`sales-filter-panel ${showFilters ? 'sales-filter-panel-open' : ''}`}>
+        <div className="sales-filter-grid">
+          {/* Date */}
+          <div className="sales-filter-item">
+            <label className="sales-filter-label">
+              <Calendar className="h-3.5 w-3.5" />
+              Fecha
+            </label>
+            <select
+              className="sales-filter-select"
+              value={dateFilter}
+              onChange={(e) => onDateFilterChange(e.target.value)}
+            >
+              <option value="all">Todas</option>
+              <option value="today">Hoy</option>
+              <option value="yesterday">Ayer</option>
+              <option value="week">Esta semana</option>
+              <option value="month">Este mes</option>
+            </select>
+          </div>
+
+          {/* Status */}
+          <div className="sales-filter-item">
+            <label className="sales-filter-label">
+              <Archive className="h-3.5 w-3.5" />
+              Estado
+            </label>
+            <select
+              className="sales-filter-select"
+              value={statusFilter}
+              onChange={(e) => onStatusFilterChange(e.target.value)}
+            >
+              <option value="all">Todos</option>
+              <option value="pagada">Pagada</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="cancelada">Cancelada</option>
+            </select>
+          </div>
+
+          {/* Payment */}
+          <div className="sales-filter-item">
+            <label className="sales-filter-label">
+              <CreditCard className="h-3.5 w-3.5" />
+              Pago
+            </label>
+            <select
+              className="sales-filter-select"
+              value={paymentFilter}
+              onChange={(e) => onPaymentFilterChange(e.target.value)}
+            >
+              <option value="all">Todos</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="bancolombia">Bancolombia</option>
+              <option value="nequi">Nequi</option>
+              <option value="daviplata">Daviplata</option>
+            </select>
+          </div>
+
+          {/* Delivery */}
+          <div className="sales-filter-item">
+            <label className="sales-filter-label">
+              <Truck className="h-3.5 w-3.5" />
+              Tipo
+            </label>
+            <select
+              className="sales-filter-select"
+              value={deliveryFilter}
+              onChange={(e) => onDeliveryFilterChange(e.target.value)}
+            >
+              <option value="all">Todos</option>
+              <option value="local">En local</option>
+              <option value="delivery">Domicilios</option>
+            </select>
+          </div>
+
+          {/* History */}
+          <div className="sales-filter-item">
+            <label className="sales-filter-label">
+              <Archive className="h-3.5 w-3.5" />
+              Historial
+            </label>
+            <select
+              className="sales-filter-select"
+              value={historyFilter}
+              onChange={(e) => onHistoryFilterChange(e.target.value)}
+            >
+              <option value="active">Solo activas</option>
+              <option value="all">Todas</option>
+              <option value="edited">Editadas</option>
+              <option value="deleted">Eliminadas</option>
+            </select>
+          </div>
         </div>
+
+        {/* Clear filters */}
+        {activeCount > 0 && (
+          <button className="sales-filter-clear" onClick={handleClearFilters}>
+            <X className="h-3.5 w-3.5" />
+            Limpiar filtros ({activeCount})
+          </button>
+        )}
       </div>
     </div>
   );

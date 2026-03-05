@@ -23,6 +23,8 @@ export interface Sale {
   fecha_vencimiento_credito?: string;
   negocio_id?: string;
   _isDeleted?: boolean;
+  _hasReturns?: boolean;
+  _returnAmount?: number;
   version?: number;
   cliente?: {
     nombre_completo: string;
