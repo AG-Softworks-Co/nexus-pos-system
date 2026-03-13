@@ -817,7 +817,7 @@ const NewSale: React.FC = () => {
                 </div>
                 
                 <div className="p-3 text-left">
-                  <h3 className="text-sm font-medium text-gray-900 truncate">
+                  <h3 className="text-sm font-medium text-gray-900">
                     {product.nombre}
                   </h3>
                   <p className="mt-1 text-sm font-bold text-primary-600">
@@ -1068,8 +1068,8 @@ const NewSale: React.FC = () => {
                   <h4 className="text-md font-semibold text-gray-800 mb-3">Resumen del pedido</h4>
                   {cart.map(item => (
                     <div key={item.id} className="flex justify-between text-sm text-gray-600">
-                      <span className="truncate pr-2">
-                        {item.name} (x{item.quantity})
+                    <span className="pr-2">
+                      {item.name} (x{item.quantity})
                         {item.discountApplied && item.discountApplied > 0 && (
                           <span className="text-green-600 ml-1">(-${item.discountApplied.toLocaleString()})</span>
                         )}

@@ -29,7 +29,7 @@ const ProductQuantityChart: React.FC<ProductQuantityChartProps> = ({
         {products.map((product) => (
           <div key={product.name} className="space-y-3 p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200">
             <div className="flex justify-between items-center text-sm">
-              <span className="font-semibold text-gray-900 truncate pr-2">{product.name}</span>
+              <span className="font-semibold text-gray-900 pr-2">{product.name}</span>
               <div className="text-right">
                 <span className="font-bold text-primary-600">{product.quantity}</span>
                 <span className="text-gray-500 text-xs ml-1">und.</span>
