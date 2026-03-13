@@ -161,8 +161,91 @@ const Layout: React.FC = () => {
       )
       .subscribe();
 
+    // --- Realtime Cash Register Subscription (Only for Admins/Owners) ---
+    const cashChannel = supabase
+      .channel('caja-alertas')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cierres_caja' },
+        (payload) => {
+          // If not Owner/Admin, ignore
+          if (user.rol !== 'propietario' && user.rol !== 'administrador') return;
+
+          const newRecord = payload.new as any;
+          if (newRecord.negocio_id !== user.negocioId) return;
+
+          let title = '';
+          let message = '';
+          const eventType = payload.eventType;
+
+          if (eventType === 'INSERT') {
+            title = '🔐 Caja Abierta';
+            message = `Se ha abierto una nueva caja con base de $${(newRecord.monto_apertura || 0).toLocaleString()}`;
+          } else if (eventType === 'UPDATE') {
+            const oldRecord = payload.old as any;
+            if (newRecord.estado === 'completado' && oldRecord.estado === 'pendiente') {
+              title = '🔒 Caja Cerrada';
+              message = `Se cerró la caja con efectivo real de $${(newRecord.efectivo_contado || 0).toLocaleString()}`;
+            } else if (newRecord.estado === 'completado' && oldRecord.estado === 'completado') {
+              // This is an edit of a past closure
+              title = '📝 Caja Editada';
+              message = `Administrador corrigió un cierre. Nuevo efectivo real: $${(newRecord.efectivo_contado || 0).toLocaleString()}`;
+            } else {
+              return;
+            }
+          } else {
+            return;
+          }
+
+          const newNotification: NotificationItem = {
+            id: `caja-${newRecord.id}-${Date.now()}`,
+            title,
+            message,
+            read: false,
+            createdAt: new Date().toISOString()
+          };
+          setNotifications(prev => [newNotification, ...prev]);
+
+          toast(message, { icon: eventType === 'INSERT' ? '🔐' : '🔒', duration: 6000 });
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(title, { body: message });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'movimientos_caja' },
+        (payload) => {
+          // If not Owner/Admin, ignore
+          if (user.rol !== 'propietario' && user.rol !== 'administrador') return;
+
+          const newRecord = payload.new as any;
+          if (newRecord.negocio_id !== user.negocioId) return;
+
+          const isIngreso = newRecord.tipo === 'ingreso';
+          const title = isIngreso ? '💵 Ingreso Extra de Caja' : '💸 Gasto / Egreso de Caja';
+          const message = `Se registró un ${newRecord.tipo} por $${newRecord.monto?.toLocaleString()}: ${newRecord.descripcion}`;
+
+          const newNotification: NotificationItem = {
+            id: `mov-${newRecord.id}-${Date.now()}`,
+            title,
+            message,
+            read: false,
+            createdAt: new Date().toISOString()
+          };
+          setNotifications(prev => [newNotification, ...prev]);
+
+          toast(message, { icon: isIngreso ? '💵' : '💸', duration: 6000 });
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(title, { body: message });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(cashChannel);
     };
   }, [user, notifications]); // Added notifications to dependency for DELETE filter logic
 

@@ -1,6 +1,6 @@
 // src/pages/NewSale.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, CreditCard, DollarSign, X, AlertCircle, Smartphone, CreditCard as CardIcon, Truck, MapPin, Phone, Mail, User, ShoppingCart, Minus, AlertTriangle, CheckCircle, ArrowLeft, Landmark, Percent } from 'lucide-react';
+import { Search, Plus, Trash2, CreditCard, DollarSign, X, AlertCircle, Smartphone, CreditCard as CardIcon, Truck, MapPin, Phone, Mail, User, ShoppingCart, Minus, AlertTriangle, CheckCircle, ArrowLeft, Landmark, Percent, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import DiscountModal from '../components/sales/DiscountModal';
@@ -143,6 +143,9 @@ const NewSale: React.FC = () => {
   const [openedPaymentFromMobileCart, setOpenedPaymentFromMobileCart] = useState(false);
   const [showClientForm, setShowClientForm] = useState(false);
   
+  // Register state
+  const [hasOpenRegister, setHasOpenRegister] = useState<boolean | null>(null);
+
   // Discount states
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [appliedDiscount, setAppliedDiscount] = useState<{
@@ -155,11 +158,30 @@ const NewSale: React.FC = () => {
 
   useEffect(() => {
     if (user?.negocioId) {
+      checkOpenRegister();
       fetchProducts();
       fetchCategories();
       fetchClients();
     }
   }, [user]);
+
+  const checkOpenRegister = async () => {
+    if (!user?.negocioId) return;
+    try {
+      const { data, error } = await supabase
+        .from('cierres_caja')
+        .select('id')
+        .eq('negocio_id', user.negocioId)
+        .eq('estado', 'pendiente')
+        .limit(1)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      setHasOpenRegister(!!data);
+    } catch (err) {
+      console.error('Error checking register status:', err);
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -334,12 +356,12 @@ const NewSale: React.FC = () => {
 
     setCart(cart.map(item => {
       if (item.id === itemId) {
-        if (item.requiere_stock && item.stock_actual !== null && newQuantity > item.stock_actual) {
+        if (item.requiere_stock && item.stock_actual !== undefined && item.stock_actual !== null && newQuantity > item.stock_actual) {
           showAlertModal('Stock Insuficiente', 'No hay suficiente stock disponible para esta cantidad.', 'error');
           return item;
         }
 
-        if (item.requiere_stock && item.stock_minimo != null && item.stock_actual != null && (item.stock_actual - newQuantity) <= item.stock_minimo) {
+        if (item.requiere_stock && item.stock_minimo !== undefined && item.stock_minimo !== null && item.stock_actual !== undefined && item.stock_actual !== null && (item.stock_actual - newQuantity) <= item.stock_minimo) {
           showAlertModal('Stock Bajo', `Advertencia: Este producto quedará con stock bajo (${(item.stock_actual || 0) - newQuantity} unidades).`, 'warning');
         }
 
@@ -469,6 +491,11 @@ const NewSale: React.FC = () => {
     
     if (!user?.negocioId || cart.length === 0) {
       showAlertModal('Error', 'El carrito está vacío o no hay información del negocio.', 'error');
+      return;
+    }
+
+    if (!hasOpenRegister) {
+      showAlertModal('Caja Cerrada', 'No puedes registrar ventas porque la caja está cerrada.', 'error');
       return;
     }
     
@@ -656,6 +683,28 @@ const NewSale: React.FC = () => {
     );
   }
 
+  if (hasOpenRegister === false) {
+    return (
+      <div className="h-[calc(100vh-4rem)] flex items-center justify-center bg-gray-50 px-4">
+        <div className="text-center max-w-md bg-white p-8 rounded-lg shadow-sm border border-gray-200">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
+            <Lock className="h-8 w-8 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Caja Cerrada</h2>
+          <p className="text-gray-500 mb-6">
+            Para poder registrar ventas, necesitas abrir la caja primero.
+          </p>
+          <button
+            onClick={() => window.location.href = '/cash-closing'}
+            className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+          >
+            Ir a Cierre de Caja
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const paymentOptions = [
     { value: 'efectivo' as const, label: 'Efectivo', icon: <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> },
     { value: 'tarjeta' as const, label: 'Tarjeta', icon: <CardIcon className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> },
@@ -815,14 +864,14 @@ const NewSale: React.FC = () => {
                       <div className="flex-1 mr-2">
                         <div className="flex items-center">
                           <h3 className="text-sm font-medium text-gray-900">{item.name}</h3>
-                          {item.requiere_stock && item.stock_actual !== null && item.stock_minimo !== null &&
+                          {item.requiere_stock && item.stock_actual !== undefined && item.stock_actual !== null && item.stock_minimo !== undefined && item.stock_minimo !== null &&
                            item.stock_actual <= item.stock_minimo && item.stock_actual > 0 && (
                             <div className="ml-2 flex items-center text-yellow-600" 
                                  title={`Stock bajo: ${item.stock_actual} unidades restantes`}>
                               <AlertTriangle className="h-4 w-4" />
                             </div>
                           )}
-                           {item.requiere_stock && item.stock_actual !== null && item.stock_actual <= 0 && (
+                           {item.requiere_stock && item.stock_actual !== undefined && item.stock_actual !== null && item.stock_actual <= 0 && (
                             <div className="ml-2 flex items-center text-red-600" 
                                  title={`Producto agotado`}>
                               <AlertCircle className="h-4 w-4" />
@@ -860,7 +909,7 @@ const NewSale: React.FC = () => {
                         <button 
                           className="text-gray-500 hover:text-primary-600 border border-gray-300 rounded-full p-1.5 disabled:opacity-50"
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          disabled={!!(item.requiere_stock && item.stock_actual !== null && item.quantity >= item.stock_actual)}
+                          disabled={!!(item.requiere_stock && item.stock_actual !== undefined && item.stock_actual !== null && item.quantity >= item.stock_actual)}
                           aria-label="Aumentar cantidad"
                         >
                           <Plus className="h-3 w-3" />
