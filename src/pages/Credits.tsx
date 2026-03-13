@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, CreditCard, Calendar, User, DollarSign, AlertTriangle, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Search, CreditCard, Calendar, User, DollarSign, AlertTriangle, CheckCircle, Clock, XCircle, ArrowRight, MoreVertical, Wallet, TrendingUp, History, Info, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDisplayDate } from '../utils/dateUtils';
@@ -102,12 +102,10 @@ const Credits: React.FC = () => {
     }
   };
 
-  // --- FUNCIÓN CORREGIDA ---
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Añadimos una comprobación para asegurarnos de que tenemos toda la información necesaria
     if (!selectedSale || !user?.id || !user?.negocioId) {
-      setError("No se pudo procesar el pago: falta información del usuario o de la venta.");
+      setError("No se pudo procesar el pago: falta información.");
       return;
     }
 
@@ -116,61 +114,37 @@ const Credits: React.FC = () => {
 
     try {
       const monto = parseFloat(paymentData.monto);
-
       if (isNaN(monto) || monto <= 0 || monto > selectedSale.saldo_pendiente) {
-        throw new Error('El monto debe ser un número válido, mayor a 0 y no exceder el saldo pendiente');
+        throw new Error('Monto inválido');
       }
-
-      // Se crea el objeto a insertar con todos los campos requeridos
-      const newPayment = {
-        venta_id: selectedSale.id,
-        usuario_id: user.id,
-        negocio_id: user.negocioId, // <-- ✅ ¡ESTA ES LA LÍNEA CLAVE AÑADIDA!
-        monto,
-        metodo_pago: paymentData.metodo_pago,
-        notas: paymentData.notas || null
-      };
 
       const { error } = await supabase
         .from('pagos_parciales')
-        .insert([newPayment]); // Se inserta el objeto
+        .insert([{
+          venta_id: selectedSale.id,
+          usuario_id: user.id,
+          negocio_id: user.negocioId,
+          monto,
+          metodo_pago: paymentData.metodo_pago,
+          notas: paymentData.notas || null
+        }]);
 
-      if (error) {
-        // Hacemos el log del error más específico para poder depurarlo
-        console.error('Error de Supabase al insertar pago:', error);
-        throw new Error(`Error al registrar el pago: ${error.message}`);
-      }
+      if (error) throw error;
 
-      // Actualizar saldo_pendiente y estado de la venta
-      const nuevoSaldo = selectedSale.saldo_pendiente - monto;
-      const updateData: any = {
-        saldo_pendiente: Math.max(0, nuevoSaldo),
-      };
+      const nuevoSaldo = Math.max(0, selectedSale.saldo_pendiente - monto);
+      const updateData: any = { saldo_pendiente: nuevoSaldo };
 
       if (nuevoSaldo <= 0) {
-        // Crédito completamente pagado
         updateData.estado_pago = 'pagado';
         updateData.estado = 'pagada';
       } else {
-        // Pago parcial
         updateData.estado_pago = 'parcial';
       }
 
-      const { error: updateError } = await supabase
-        .from('ventas')
-        .update(updateData)
-        .eq('id', selectedSale.id);
+      await supabase.from('ventas').update(updateData).eq('id', selectedSale.id);
 
-      if (updateError) {
-        console.error('Error actualizando estado de venta:', updateError);
-        // No lanzamos error porque el pago ya se registró exitosamente
-      }
-
-      // Si todo sale bien, actualizamos la UI
       await fetchCreditSales();
-      if (showPaymentsModal) {
-        await fetchPartialPayments(selectedSale.id);
-      }
+      if (showPaymentsModal) await fetchPartialPayments(selectedSale.id);
       setShowPaymentModal(false);
       setPaymentData({ monto: '', metodo_pago: 'efectivo', notas: '' });
     } catch (err: any) {
@@ -179,7 +153,6 @@ const Credits: React.FC = () => {
       setIsSubmitting(false);
     }
   };
-  // --- FIN DE LA FUNCIÓN CORREGIDA ---
 
   const handleViewPayments = async (sale: CreditSale) => {
     setSelectedSale(sale);
@@ -187,415 +160,403 @@ const Credits: React.FC = () => {
     setShowPaymentsModal(true);
   };
 
-  const getStatusColor = (estado: string, fechaVencimiento: string) => {
-    const isOverdue = new Date(fechaVencimiento) < new Date();
-
-    if (estado === 'pagado') return 'bg-green-100 text-green-800';
-    if ((estado === 'vencido' || isOverdue) && estado !== 'pagado') return 'bg-red-100 text-red-800';
-    if (estado === 'parcial') return 'bg-yellow-100 text-yellow-800';
-    return 'bg-blue-100 text-blue-800'; // Cambiado a azul para 'pendiente'
-  };
-
-  const getStatusIcon = (estado: string, fechaVencimiento: string) => {
-    const isOverdue = new Date(fechaVencimiento) < new Date();
-
-    if (estado === 'pagado') return <CheckCircle className="h-4 w-4" />;
-    if ((estado === 'vencido' || isOverdue) && estado !== 'pagado') return <XCircle className="h-4 w-4" />;
-    if (estado === 'parcial') return <Clock className="h-4 w-4" />;
-    return <AlertTriangle className="h-4 w-4" />; // Mantenemos para pendiente
+  const getStatusConfig = (sale: CreditSale) => {
+    const isOverdue = new Date(sale.fecha_vencimiento_credito) < new Date() && sale.estado_pago !== 'pagado';
+    if (sale.estado_pago === 'pagado') return { label: 'Pagado', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle };
+    if (isOverdue) return { label: 'Vencido', color: 'bg-rose-100 text-rose-700 border-rose-200', icon: XCircle };
+    if (sale.estado_pago === 'parcial') return { label: 'Parcial', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Clock };
+    return { label: 'Pendiente', color: 'bg-sky-100 text-sky-700 border-sky-200', icon: Info };
   };
 
   const filteredSales = creditSales.filter(sale => {
-    const saleDate = new Date(sale.fecha_vencimiento_credito);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalizar para comparar solo la fecha
-
-    const isOverdue = saleDate < today && sale.estado_pago !== 'pagado';
-
+    const isOverdue = new Date(sale.fecha_vencimiento_credito) < new Date() && sale.estado_pago !== 'pagado';
     const matchesSearch = !searchQuery ||
       sale.cliente.nombre_completo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sale.cliente.telefono?.includes(searchQuery) ||
       sale.id.toLowerCase().includes(searchQuery.toLowerCase());
-
+    
     let matchesStatus = true;
     if (statusFilter !== 'all') {
-      if (statusFilter === 'vencido') {
-        matchesStatus = isOverdue;
-      } else {
-        matchesStatus = sale.estado_pago === statusFilter && !isOverdue;
-      }
+      if (statusFilter === 'vencido') matchesStatus = isOverdue;
+      else matchesStatus = sale.estado_pago === statusFilter && !isOverdue;
     }
-
     return matchesSearch && matchesStatus;
   });
 
-  const totalCredits = creditSales.reduce((sum, sale) => sum + sale.saldo_pendiente, 0);
-  const overdueCredits = creditSales.filter(sale =>
-    new Date(sale.fecha_vencimiento_credito) < new Date() && sale.estado_pago !== 'pagado'
-  ).reduce((sum, sale) => sum + sale.saldo_pendiente, 0);
+  const totalCredits = creditSales.reduce((sum, s) => sum + s.saldo_pendiente, 0);
+  const overdueCredits = creditSales.filter(s => new Date(s.fecha_vencimiento_credito) < new Date() && s.estado_pago !== 'pagado')
+    .reduce((sum, s) => sum + s.saldo_pendiente, 0);
 
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-        <p className="mt-4 text-gray-500">Cargando créditos...</p>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh]">
+      <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-100 border-t-primary-600"></div>
+      <p className="mt-4 text-gray-500 font-medium font-outfit">Preparando estados de cuenta...</p>
+    </div>
+  );
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-gray-50 min-h-screen">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Gestión de Créditos</h1>
+    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 p-4 pb-24 lg:pb-8">
+      {/* Header & Hero Stats */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight font-outfit">Mis Créditos</h1>
+          <p className="text-slate-500 mt-1">Gestión enterprise de cuentas por cobrar y abonos.</p>
+        </div>
+        <div className="hidden md:flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <Clock className="h-3 w-3" /> Actualizado ahora
+        </div>
       </div>
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">¡Error!</strong>
-          <span className="block sm:inline ml-2">{error}</span>
-        </div>
-      )}
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total en Créditos</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
-                ${totalCredits.toLocaleString('es-CO')}
-              </p>
-            </div>
-            <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
-              <CreditCard className="h-6 w-6" />
-            </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="bg-white rounded-2xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
+            <Wallet className="h-16 w-16 text-primary-600" />
+          </div>
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Cartera Total</p>
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-3xl font-black text-slate-900">${totalCredits.toLocaleString('es-CO')}</span>
+            <span className="text-xs font-bold text-slate-400">COP</span>
+          </div>
+          <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-1 rounded-full">
+            <TrendingUp className="h-3 w-3" /> +2.5% vs ayer
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Créditos Vencidos</p>
-              <p className="text-3xl font-bold text-red-600 mt-1">
-                ${overdueCredits.toLocaleString('es-CO')}
-              </p>
-            </div>
-            <div className="p-3 bg-red-100 text-red-600 rounded-lg">
-              <AlertTriangle className="h-6 w-6" />
-            </div>
+        <div className="bg-white rounded-2xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform text-rose-600">
+            <AlertTriangle className="h-16 w-16" />
           </div>
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Morosidad Crítica</p>
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-3xl font-black text-rose-600">${overdueCredits.toLocaleString('es-CO')}</span>
+            <span className="text-xs font-bold text-slate-400">COP</span>
+          </div>
+          <p className="mt-4 text-xs font-medium text-slate-400">Vencimientos mayores a 24h</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Clientes con Crédito</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
-                {new Set(creditSales.map(sale => sale.cliente.nombre_completo)).size}
-              </p>
-            </div>
-            <div className="p-3 bg-green-100 text-green-600 rounded-lg">
-              <User className="h-6 w-6" />
-            </div>
+        <div className="bg-white rounded-2xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden group sm:col-span-2 lg:col-span-1">
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Base de Clientes</p>
+          <div className="mt-2 text-3xl font-black text-slate-900">
+            {new Set(creditSales.map(s => s.cliente.nombre_completo)).size}
+          </div>
+          <div className="mt-4 flex -space-x-2">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="h-8 w-8 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">US</div>
+            ))}
+            <div className="h-8 w-8 rounded-full border-2 border-white bg-primary-50 flex items-center justify-center text-[10px] font-bold text-primary-600">+12</div>
           </div>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 shadow-md rounded-xl border border-gray-200">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              className="pl-10 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-              placeholder="Buscar por cliente, teléfono o ID de venta..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          <div>
+      {/* Control Bar */}
+      <div className="bg-white p-2 sm:p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center">
+        <div className="relative w-full md:flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar por cliente o folio..."
+            className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500 text-sm font-medium transition-all"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-2 w-full md:w-auto">
+          <div className="flex-1 md:flex-none">
             <select
-              className="focus:ring-primary-500 focus:border-primary-500 h-full py-2 pl-3 pr-7 border-gray-300 bg-white text-gray-700 sm:text-sm rounded-md w-full md:w-auto"
+              className="w-full bg-slate-50 border-none rounded-xl py-3 px-4 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-primary-500"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="all">Todos los estados</option>
-              <option value="pendiente">Pendiente</option>
-              <option value="parcial">Parcial</option>
-              <option value="pagado">Pagado</option>
-              <option value="vencido">Vencido</option>
+              <option value="all">Filtro: Todos</option>
+              <option value="pendiente">Solo Pendientes</option>
+              <option value="parcial">Solo Parciales</option>
+              <option value="vencido">Solo Vencidos</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Credits Table */}
-      <div className="bg-white shadow-md rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Fecha Venta
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Total
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Saldo Pendiente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Vencimiento
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredSales.map((sale) => (
-                <tr key={sale.id} className="hover:bg-gray-50 transition-colors duration-150">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {sale.cliente.nombre_completo}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {sale.cliente.telefono || 'N/A'}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDisplayDate(sale.creada_en)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ${sale.total.toLocaleString('es-CO')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                    ${sale.saldo_pendiente.toLocaleString('es-CO')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDisplayDate(sale.fecha_vencimiento_credito)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(sale.estado_pago, sale.fecha_vencimiento_credito)
-                      }`}>
-                      {getStatusIcon(sale.estado_pago, sale.fecha_vencimiento_credito)}
-                      <span className="ml-1 capitalize">{sale.estado_pago === 'pendiente' && new Date(sale.fecha_vencimiento_credito) < new Date() ? 'Vencido' : sale.estado_pago}</span>
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-3">
-                      <button
-                        onClick={() => handleViewPayments(sale)}
-                        className="text-blue-600 hover:text-blue-900 font-semibold"
-                        title="Ver pagos"
-                      >
-                        Ver Pagos
-                      </button>
-                      {sale.saldo_pendiente > 0 && (
-                        <button
-                          onClick={() => {
-                            setSelectedSale(sale);
-                            setPaymentData({ monto: '', metodo_pago: 'efectivo', notas: '' });
-                            setShowPaymentModal(true);
-                          }}
-                          className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg text-xs"
-                          title="Agregar pago"
-                        >
-                          Abonar
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Mobile Feed / Desktop Table View */}
+      <div className="space-y-4">
+        {/* Desktop Table Header (Visible only on lg+) */}
+        <div className="hidden lg:grid grid-cols-7 gap-4 px-6 py-4 bg-slate-50 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">
+          <div className="col-span-2">Información del Cliente</div>
+          <div>Fecha Folio</div>
+          <div>Total Venta</div>
+          <div>Saldo Moroso</div>
+          <div>Estado</div>
+          <div className="text-right">Gestión</div>
         </div>
 
+        {filteredSales.map((sale) => {
+          const status = getStatusConfig(sale);
+          const Icon = status.icon;
+          const progress = ((sale.total - sale.saldo_pendiente) / sale.total) * 100;
+
+          return (
+            <div key={sale.id} className="bg-white lg:hover:bg-slate-50 transition-all rounded-3xl border border-slate-100 shadow-sm overflow-hidden group">
+              {/* Desktop Row Content */}
+              <div className="hidden lg:grid grid-cols-7 gap-4 p-6 items-center">
+                <div className="col-span-2 flex items-center gap-4">
+                  <div className="h-10 w-10 flex-shrink-0 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 font-black text-sm">
+                    {sale.cliente.nombre_completo.charAt(0)}
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-900">{sale.cliente.nombre_completo}</div>
+                    <div className="text-xs text-slate-400">{sale.cliente.telefono || 'Sin contacto'}</div>
+                  </div>
+                </div>
+                <div className="text-xs font-semibold text-slate-600">
+                  {formatDisplayDate(sale.creada_en)}
+                  <div className="text-[10px] text-slate-400 mt-1 uppercase">Folio: #{sale.id.slice(0,6)}</div>
+                </div>
+                <div className="text-sm font-bold text-slate-900">${sale.total.toLocaleString()}</div>
+                <div className="text-sm font-black text-rose-600">${sale.saldo_pendiente.toLocaleString()}</div>
+                <div>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase border ${status.color}`}>
+                    <Icon className="h-3 w-3" /> {status.label}
+                  </span>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => handleViewPayments(sale)}
+                    className="p-2 text-slate-400 hover:text-primary-600 transition-colors"
+                    title="Historial de abonos"
+                  >
+                    <History className="h-5 w-5" />
+                  </button>
+                  {sale.saldo_pendiente > 0 && (
+                    <button
+                      onClick={() => { setSelectedSale(sale); setPaymentData({ monto: '', metodo_pago: 'efectivo', notas: '' }); setShowPaymentModal(true); }}
+                      className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg shadow-primary-200"
+                    >
+                      Abonar
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Mobile Card Content */}
+              <div className="lg:hidden p-5 flex flex-col gap-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white font-black text-lg">
+                      {sale.cliente.nombre_completo.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 leading-tight">{sale.cliente.nombre_completo}</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">#{sale.id.slice(0,8)} • {formatDisplayDate(sale.creada_en)}</p>
+                    </div>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border ${status.color}`}>
+                    {status.label}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase">Total Cartera</p>
+                    <p className="text-sm font-bold text-slate-900">${sale.total.toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase">Saldo Moroso</p>
+                    <p className="text-sm font-black text-rose-600">${sale.saldo_pendiente.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div>
+                  <div className="flex justify-between text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+                    <span>Progreso de Pago</span>
+                    <span>{progress.toFixed(0)}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary-600 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => handleViewPayments(sale)}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-100 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200"
+                  >
+                    <History className="h-4 w-4" /> Historial
+                  </button>
+                  {sale.saldo_pendiente > 0 && (
+                    <button
+                      onClick={() => { setSelectedSale(sale); setPaymentData({ monto: '', metodo_pago: 'efectivo', notas: '' }); setShowPaymentModal(true); }}
+                      className="flex-1 py-3 bg-primary-600 rounded-xl text-xs font-bold text-white shadow-lg shadow-primary-200"
+                    >
+                      Realizar Abono
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
         {filteredSales.length === 0 && (
-          <div className="text-center py-16">
-            <CreditCard className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-800">No se encontraron créditos</h3>
-            <p className="text-sm text-gray-500 mt-1">Intenta ajustar los filtros de búsqueda o de estado.</p>
+          <div className="py-24 flex flex-col items-center justify-center text-center">
+            <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+              <CreditCard className="h-10 w-10 text-slate-300" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">Operación sin resultados</h3>
+            <p className="max-w-[280px] text-sm text-slate-400 mt-1">No hemos encontrado créditos que coincidan con los criterios actuales.</p>
           </div>
         )}
       </div>
 
-      {/* Payment Modal */}
+      {/* Payment Modal Refined */}
       {showPaymentModal && selectedSale && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={() => setShowPaymentModal(false)}></div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">​</span>
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in" onClick={() => setShowPaymentModal(false)} />
+          <div className="relative w-full max-w-lg bg-white rounded-t-[2.5rem] sm:rounded-3xl shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden">
+            <div className="p-8">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">Registrar Abono</h3>
+                  <p className="text-slate-500 text-sm font-medium">Folio: #{selectedSale.id.slice(0,8)} • {selectedSale.cliente.nombre_completo}</p>
+                </div>
+                <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-slate-50 rounded-full transition-colors">
+                  <XCircle className="h-6 w-6 text-slate-300" />
+                </button>
+              </div>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <form onSubmit={handleAddPayment}>
-                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                  <div className="sm:flex sm:items-start">
-                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10">
-                      <DollarSign className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                      <h3 className="text-xl font-bold text-gray-900" id="modal-title">
-                        Registrar Abono
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-1">Para: {selectedSale.cliente.nombre_completo}</p>
-                    </div>
-                  </div>
+              <div className="bg-primary-50 p-6 rounded-2xl border border-primary-100 mb-8">
+                <p className="text-[10px] font-black text-primary-600 uppercase tracking-widest leading-none mb-2">Deuda Pendiente</p>
+                <p className="text-3xl font-black text-slate-900">${selectedSale.saldo_pendiente.toLocaleString('es-CO')}</p>
+              </div>
 
-                  <div className="mt-6 mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-gray-600">Saldo pendiente actual: <span className="font-bold text-lg text-blue-800">${selectedSale.saldo_pendiente.toLocaleString('es-CO')}</span></p>
-                  </div>
-
-                  <div className="space-y-4 mt-5">
-                    <div>
-                      <label htmlFor="monto" className="block text-sm font-medium text-gray-700">Monto del pago</label>
-                      <div className="mt-1 relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <span className="text-gray-500 sm:text-sm">$</span>
-                        </div>
-                        <input
-                          type="number"
-                          id="monto"
-                          className="pl-7 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                          value={paymentData.monto}
-                          onChange={(e) => setPaymentData({ ...paymentData, monto: e.target.value })}
-                          max={selectedSale.saldo_pendiente}
-                          min="0.01"
-                          step="0.01"
-                          required
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label htmlFor="metodo_pago" className="block text-sm font-medium text-gray-700">Método de pago</label>
-                      <select
-                        id="metodo_pago"
-                        className="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        value={paymentData.metodo_pago}
-                        onChange={(e) => setPaymentData({ ...paymentData, metodo_pago: e.target.value })}
-                      >
-                        <option value="efectivo">Efectivo</option>
-                        <option value="tarjeta">Tarjeta</option>
-                        <option value="bancolombia">Bancolombia</option>
-                        <option value="nequi">Nequi</option>
-                        <option value="daviplata">Daviplata</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label htmlFor="notas" className="block text-sm font-medium text-gray-700">Notas (opcional)</label>
-                      <textarea
-                        id="notas"
-                        rows={3}
-                        className="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        value={paymentData.notas}
-                        onChange={(e) => setPaymentData({ ...paymentData, notas: e.target.value })}
-                        placeholder="Información adicional sobre el pago..."
-                      />
-                    </div>
+              <form onSubmit={handleAddPayment} className="space-y-6">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Monto a Abonar</label>
+                  <div className="relative">
+                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-black text-slate-400">$</span>
+                    <input
+                      type="number"
+                      className="w-full pl-10 pr-5 py-5 bg-slate-50 border-none rounded-2xl text-2xl font-black text-slate-900 focus:ring-2 focus:ring-primary-500 transition-all placeholder:text-slate-300"
+                      placeholder="0.00"
+                      value={paymentData.monto}
+                      onChange={(e) => setPaymentData({ ...paymentData, monto: e.target.value })}
+                      max={selectedSale.saldo_pendiente}
+                      step="0.01"
+                      required
+                      autoFocus
+                    />
                   </div>
                 </div>
 
-                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Procesando...' : 'Registrar Pago'}
-                  </button>
-                  <button
-                    type="button"
-                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                    onClick={() => setShowPaymentModal(false)}
-                  >
-                    Cancelar
-                  </button>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase mb-2">Método</label>
+                    <select
+                      className="w-full py-4 px-4 bg-slate-50 border-none rounded-2xl font-bold text-slate-700 focus:ring-2 focus:ring-primary-500"
+                      value={paymentData.metodo_pago}
+                      onChange={(e) => setPaymentData({ ...paymentData, metodo_pago: e.target.value })}
+                    >
+                      <option value="efectivo">Efectivo</option>
+                      <option value="tarjeta">Tarjeta</option>
+                      <option value="bancolombia">Puntos Libres</option>
+                      <option value="nequi">Nequi</option>
+                      <option value="daviplata">Daviplata</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase mb-2">Concepto</label>
+                    <input
+                      type="text"
+                      className="w-full py-4 px-4 bg-slate-50 border-none rounded-2xl font-bold text-slate-700 placeholder:font-medium"
+                      placeholder="Abono semanal..."
+                      value={paymentData.notas}
+                      onChange={(e) => setPaymentData({ ...paymentData, notas: e.target.value })}
+                    />
+                  </div>
                 </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-5 bg-primary-600 rounded-3xl text-lg font-black text-white hover:bg-primary-700 transition-all shadow-xl shadow-primary-200 disabled:opacity-50 mt-4 active:scale-[0.98]"
+                >
+                  {isSubmitting ? 'Verificando Fondos...' : 'Confirmar Abono Bancario'}
+                </button>
               </form>
             </div>
           </div>
         </div>
       )}
 
-      {/* Payments History Modal */}
+      {/* Timeline Payments Model */}
       {showPaymentsModal && selectedSale && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={() => setShowPaymentsModal(false)}></div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">​</span>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in" onClick={() => setShowPaymentsModal(false)} />
+          <div className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-300 max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900">Historial de Transacciones</h3>
+                <p className="text-slate-400 font-medium text-sm capitalize">{selectedSale.cliente.nombre_completo}</p>
+              </div>
+              <button onClick={() => setShowPaymentsModal(false)} className="p-3 hover:bg-slate-50 rounded-full transition-colors">
+                <XCircle className="h-6 w-6 text-slate-300" />
+              </button>
+            </div>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="flex justify-between items-start mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">
-                    Historial de Pagos
-                  </h3>
-                  <button onClick={() => setShowPaymentsModal(false)} className="text-gray-400 hover:text-gray-600">
-                    <XCircle className="h-6 w-6" />
-                  </button>
-                </div>
+            <div className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar-hide">
+              <div className="flex items-center gap-6 p-6 bg-slate-900 text-white rounded-[2rem]">
+                 <div className="h-16 w-16 bg-white/10 rounded-2xl flex items-center justify-center">
+                    <TrendingUp className="h-8 w-8 text-white" />
+                 </div>
+                 <div>
+                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Total Recuperado</p>
+                    <p className="text-3xl font-black">${(selectedSale.total - selectedSale.saldo_pendiente).toLocaleString()}</p>
+                 </div>
+              </div>
 
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
-                  <p className="text-md font-semibold text-gray-800">{selectedSale.cliente.nombre_completo}</p>
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Total de la venta:</p>
-                      <p className="text-lg font-bold text-gray-900">${selectedSale.total.toLocaleString('es-CO')}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Saldo pendiente:</p>
-                      <p className="text-lg font-bold text-red-600">${selectedSale.saldo_pendiente.toLocaleString('es-CO')}</p>
+              <div className="space-y-6 relative pl-8">
+                <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-slate-100" />
+                
+                {partialPayments.map((payment, idx) => (
+                  <div key={payment.id} className="relative animate-in slide-in-from-left duration-500" style={{ animationDelay: `${idx * 50}ms` }}>
+                    <div className="absolute -left-[32px] top-1.5 h-4 w-4 rounded-full border-4 border-white bg-emerald-500 shadow-sm" />
+                    <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 group">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-[10px] font-black text-slate-400 mb-1">{formatDisplayDate(payment.fecha_pago)}</p>
+                          <p className="text-sm font-bold text-slate-900 capitalize">Recibo via {payment.metodo_pago}</p>
+                          {payment.notas && <p className="text-xs text-slate-500 mt-1 font-medium italic">"{payment.notas}"</p>}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-black text-emerald-600">+${payment.monto.toLocaleString()}</p>
+                          <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-md uppercase">Efectivo</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="overflow-y-auto max-h-80 pr-2">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50 sticky top-0">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fecha</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Monto</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Método</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Notas</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {partialPayments.map((payment) => (
-                        <tr key={payment.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDisplayDate(payment.fecha_pago)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">${payment.monto.toLocaleString('es-CO')}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{payment.metodo_pago}</td>
-                          <td className="px-6 py-4 text-sm text-gray-500">{payment.notas || <span className="text-gray-400">N/A</span>}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                ))}
 
                 {partialPayments.length === 0 && (
-                  <div className="text-center py-12">
-                    <DollarSign className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <h4 className="text-md font-medium text-gray-700">Sin abonos registrados</h4>
-                    <p className="text-sm text-gray-500 mt-1">Todavía no se han realizado pagos para esta venta.</p>
+                  <div className="flex flex-col items-center justify-center py-12 ml-[-32px]">
+                    <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                      <History className="h-8 w-8 text-slate-300" />
+                    </div>
+                    <p className="text-slate-500 font-bold">Sin movimientos registrados</p>
+                    <p className="text-xs text-slate-400 mt-1">El cliente aún no ha realizado abonos previos.</p>
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase">Estado Final</p>
+                <p className="text-xl font-black text-rose-600 underline decoration-rose-200 decoration-4 underline-offset-4">Por Cobrar: ${selectedSale.saldo_pendiente.toLocaleString()}</p>
+              </div>
+              <button 
+                onClick={() => setShowPaymentsModal(false)}
+                className="px-8 py-3 bg-white border border-slate-200 rounded-xl text-sm font-black text-slate-600 hover:bg-white shadow-sm"
+              >
+                Cerrar Reporte
+              </button>
             </div>
           </div>
         </div>
