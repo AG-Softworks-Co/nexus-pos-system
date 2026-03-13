@@ -1,7 +1,6 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { formatDisplayDate } from './dateUtils';
-import type { Sale, SaleDetail } from '../types/sales';
+import type { Sale } from '../types/sales';
 import { supabase } from '../lib/supabase';
 
 // Función para obtener configuración del negocio
@@ -88,12 +87,24 @@ export const generateSaleReceipt = async (sale: Sale) => {
     try {
       const logoBase64 = await getImageAsBase64(businessData.logo_url);
       if (logoBase64) {
-        const logoWidth = 25;
-        const logoHeight = 18;
+        const props = doc.getImageProperties(logoBase64);
+        const maxLogoWidth = 25; // Reducido un poco para que no sea tan invasivo
+        const ratio = props.width / props.height;
+        
+        let logoWidth = maxLogoWidth;
+        let logoHeight = logoWidth / ratio;
+        
+        const maxLogoHeight = 22; // También reducimos la altura máxima
+        if (logoHeight > maxLogoHeight) {
+          logoHeight = maxLogoHeight;
+          logoWidth = logoHeight * ratio;
+        }
+
         const logoX = (pageWidth - logoWidth) / 2;
 
-        doc.addImage(logoBase64, 'JPEG', logoX, yPos, logoWidth, logoHeight);
-        yPos += logoHeight + 2;
+        doc.addImage(logoBase64, props.fileType, logoX, yPos, logoWidth, logoHeight);
+        // Aumentamos el margen a 8mm para dar espacio al título (que tiene 14pt de tamaño)
+        yPos += logoHeight + 8;
       }
     } catch (error) {
       console.error('Error adding logo:', error);
@@ -354,10 +365,7 @@ export const generateSaleReceipt = async (sale: Sale) => {
   centerText(mensajeDespedida, yPos, 9);
   yPos += 4;
 
-  if (businessData?.correo_empresarial) {
-    centerText(businessData.correo_empresarial, yPos, 7);
-    yPos += 3;
-  }
+
 
   // Marca de agua si está cancelada
   if (sale.estado === 'cancelada') {
