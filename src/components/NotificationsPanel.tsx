@@ -1,47 +1,32 @@
 import React from 'react';
 import { X, Bell } from 'lucide-react';
 
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
 interface NotificationsPanelProps {
   open: boolean;
   setOpen: (open: boolean) => void;
+  notifications: NotificationItem[];
+  markAllAsRead: () => void;
 }
 
-// Mock notifications for demonstration
-const mockNotifications = [
-  {
-    id: '1',
-    title: 'Ventas diarias superan la meta',
-    message: '¡Felicidades! Has superado tu meta de ventas diarias en un 15%.',
-    read: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString() // 30 mins ago
-  },
-  {
-    id: '2',
-    title: 'Productos de bajo stock',
-    message: 'Algunos productos están bajo el umbral mínimo de inventario.',
-    read: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString() // 3 hours ago
-  },
-  {
-    id: '3',
-    title: 'Nuevo usuario registrado',
-    message: 'Se ha agregado un nuevo cajero a tu negocio.',
-    read: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() // 1 day ago
-  }
-];
-
-const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ open, setOpen }) => {
+const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ open, setOpen, notifications, markAllAsRead }) => {
   return (
     <>
       {/* Mobile backdrop */}
       {open && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75"
           onClick={() => setOpen(false)}
         ></div>
       )}
-      
+
       {/* Notifications panel */}
       <div className={`fixed inset-y-0 right-0 z-50 w-80 bg-white shadow-xl transform transition-transform duration-300 ease-in-out ${open ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="h-full flex flex-col">
@@ -50,19 +35,19 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ open, setOpen }
               <Bell className="h-5 w-5 text-primary-600 mr-2" />
               <h2 className="text-lg font-medium">Notificaciones</h2>
             </div>
-            <button 
+            <button
               className="text-gray-500 hover:text-gray-700"
               onClick={() => setOpen(false)}
             >
               <X className="h-5 w-5" />
             </button>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto">
-            {mockNotifications.length > 0 ? (
+            {notifications.length > 0 ? (
               <div className="divide-y divide-gray-200">
-                {mockNotifications.map((notification) => (
-                  <div 
+                {notifications.map((notification) => (
+                  <div
                     key={notification.id}
                     className={`p-4 transition duration-150 ease-in-out hover:bg-gray-50 ${notification.read ? '' : 'bg-blue-50'}`}
                   >
@@ -87,9 +72,12 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ open, setOpen }
               </div>
             )}
           </div>
-          
+
           <div className="p-4 border-t border-gray-200">
-            <button className="w-full py-2 px-4 bg-primary-600 text-white text-sm font-medium rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+            <button
+              onClick={markAllAsRead}
+              className="w-full py-2 px-4 bg-primary-600 text-white text-sm font-medium rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+            >
               Marcar todas como leídas
             </button>
           </div>

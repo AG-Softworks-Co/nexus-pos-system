@@ -18,11 +18,13 @@ import Credits from './pages/Credits';
 import DeliveryTracking from './pages/DeliveryTracking';
 import Configuration from './pages/Configuration';
 import { AuthProvider } from './contexts/AuthContext';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
     <Router>
       <AuthProvider>
+        <Toaster position="top-right" />
         <Routes>
           {/* Rutas fuera del Layout principal */}
           <Route path="/login" element={<Login />} />
