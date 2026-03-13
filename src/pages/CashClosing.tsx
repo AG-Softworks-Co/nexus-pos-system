@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { DollarSign, History, Plus, Lock, Unlock, ArrowUpCircle, ArrowDownCircle, AlertCircle, TrendingUp, Edit3, Activity } from 'lucide-react';
+import { DollarSign, History, Plus, Lock, Unlock, ArrowUpCircle, ArrowDownCircle, AlertCircle, TrendingUp, Edit3, Activity, Download } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
@@ -353,19 +353,6 @@ const CashClosing: React.FC = () => {
 
       toast.success('Cierre de caja guardado exitosamente');
       
-      // Pass the fully updated object to PDF generation
-      generatePDF({
-        ...activeRegister,
-        fecha_fin: endISO,
-        efectivo_contado: counted,
-        total_ingresos: totalIngresos,
-        total_egresos: totalEgresos,
-        total_ventas: stats.totalSales,
-        total_efectivo: stats.cashSales,
-        diferencia: difference,
-        estado: 'completado'
-      }, stats, movements);
-      
       setCountedCash('');
       setNotes('');
       setActiveRegister(null);
@@ -377,6 +364,47 @@ const CashClosing: React.FC = () => {
       toast.error(err.message || 'Error al cerrar la caja');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadHistoryPDF = async (closing: any) => {
+    try {
+      toast.loading('Generando reporte...', { id: 'pdf-gen' });
+      
+      // Fetch movements for this closing
+      const { data: movs, error: movsError } = await supabase
+        .from('movimientos_caja')
+        .select('*')
+        .eq('cierre_caja_id', closing.id)
+        .order('creado_en', { ascending: true });
+
+      if (movsError) throw movsError;
+
+      // Fetch payment details
+      const { data: details, error: detailsError } = await supabase
+        .from('detalle_cierre_caja')
+        .select('metodo_pago, monto')
+        .eq('cierre_id', closing.id);
+
+      if (detailsError) throw detailsError;
+
+      // Map to CashClosingStats structure
+      const stats: CashClosingStats = {
+        totalSales: closing.total_ventas || 0,
+        cashSales: closing.total_efectivo || 0,
+        orderCount: closing.numero_ordenes || 0,
+        otherPaymentSales: (details || []).map(d => ({
+          method: d.metodo_pago,
+          amount: d.monto
+        })),
+        topProducts: []
+      };
+
+      generatePDF(closing, stats, movs || []);
+      toast.success('Reporte generado correctamente', { id: 'pdf-gen' });
+    } catch (err) {
+      console.error('Error generating historical PDF:', err);
+      toast.error('Error al generar el reporte PDF', { id: 'pdf-gen' });
     }
   };
 
@@ -564,6 +592,13 @@ const CashClosing: React.FC = () => {
                         title="Ver Análisis Detallado"
                       >
                         <TrendingUp className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => handleDownloadHistoryPDF(closing)}
+                        className="p-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-all"
+                        title="Descargar Reporte PDF"
+                      >
+                        <Download className="w-5 h-5" />
                       </button>
                       {['propietario', 'administrador'].includes(user?.rol || '') && (
                         <button 
