@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { FileSpreadsheet, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,6 +19,7 @@ import { startOfDay, endOfDay, subDays } from 'date-fns';
 
 const Sales: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +50,20 @@ const Sales: React.FC = () => {
       fetchSales();
     }
   }, [user, filters.historyFilter]);
+
+  // Handle highlighted sale from navigation state
+  useEffect(() => {
+    if (!loading && sales.length > 0 && location.state?.highlightSaleId) {
+      const saleId = location.state.highlightSaleId;
+      const sale = sales.find(s => s.id === saleId);
+      if (sale) {
+        setSelectedSale(sale);
+        setShowDetailModal(true);
+        // Clean up state to avoid re-opening on manual refreshes
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [loading, sales, location.state]);
 
   const fetchSales = async () => {
     setLoading(true);
@@ -106,7 +122,7 @@ const Sales: React.FC = () => {
 
         // Fetch return information for these sales
         const saleIds = data?.map(sale => sale.id) || [];
-        let returnsData = [];
+        let returnsData: any[] = [];
 
         if (saleIds.length > 0) {
           const { data: returns, error: returnsError } = await supabase
@@ -200,7 +216,7 @@ const Sales: React.FC = () => {
       // Prepare data for export
       const exportData = data.map(sale => {
         const products = sale.detalle_ventas
-          .map(detail => `${detail.producto.nombre} (${detail.cantidad}x$${detail.precio_unitario})`)
+          .map((detail: any) => `${detail.producto.nombre} (${detail.cantidad}x$${detail.precio_unitario})`)
           .join('\n');
 
         return {

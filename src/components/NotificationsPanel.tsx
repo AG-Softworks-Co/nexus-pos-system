@@ -7,6 +7,8 @@ export interface NotificationItem {
   message: string;
   read: boolean;
   createdAt: string;
+  saleId?: string;
+  actionType?: 'insert' | 'update' | 'delete';
 }
 
 interface NotificationsPanelProps {
@@ -14,9 +16,10 @@ interface NotificationsPanelProps {
   setOpen: (open: boolean) => void;
   notifications: NotificationItem[];
   markAllAsRead: () => void;
+  onNotificationClick: (notification: NotificationItem) => void;
 }
 
-const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ open, setOpen, notifications, markAllAsRead }) => {
+const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ open, setOpen, notifications, markAllAsRead, onNotificationClick }) => {
   return (
     <>
       {/* Mobile backdrop */}
@@ -49,7 +52,8 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ open, setOpen, 
                 {notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-4 transition duration-150 ease-in-out hover:bg-gray-50 ${notification.read ? '' : 'bg-blue-50'}`}
+                    onClick={() => onNotificationClick(notification)}
+                    className={`p-4 transition duration-150 ease-in-out hover:bg-gray-50 cursor-pointer border-l-4 ${notification.read ? 'border-transparent' : 'border-primary-600 bg-blue-50'}`}
                   >
                     <div className="flex justify-between">
                       <h3 className={`text-sm font-medium ${notification.read ? 'text-gray-900' : 'text-primary-600'}`}>

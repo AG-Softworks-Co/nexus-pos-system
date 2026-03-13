@@ -1,15 +1,17 @@
 // src/components/Layout.tsx
 import React, { useState } from 'react'; // Importar useState
-import { Outlet, Navigate } from 'react-router-dom';
+import { Outlet, Navigate, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationsPanel, { NotificationItem } from './NotificationsPanel';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import { subscribeUserToPush } from '../utils/push';
 
 const Layout: React.FC = () => {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
 
   // Estado para controlar la visibilidad del sidebar en móvil
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -39,6 +41,7 @@ const Layout: React.FC = () => {
         const { data, error } = await supabase
           .from('ventas')
           .select('*')
+          .eq('negocio_id', user.negocioId)
           .gte('creada_en', today.toISOString())
           .order('creada_en', { ascending: false })
           .limit(10);
@@ -51,7 +54,8 @@ const Layout: React.FC = () => {
             title: '💰 Venta Registrada',
             message: `Se registró una venta por ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(sale.total || 0)}.`,
             read: true,
-            createdAt: sale.creada_en || new Date().toISOString()
+            createdAt: sale.creada_en || new Date().toISOString(),
+            saleId: sale.id
           }));
 
           setNotifications(historicalNotifications);
@@ -66,11 +70,16 @@ const Layout: React.FC = () => {
 
   // --- Realtime Notifications Request ---
   React.useEffect(() => {
+    // Request permission and subscribe to push
+    if (user && user.negocioId) {
+      subscribeUserToPush(user.id, user.negocioId);
+    }
+    
     // Request permission for native system notifications on component mount
     if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
       Notification.requestPermission();
     }
-  }, []);
+  }, [user]);
 
   // --- Realtime Sales Subscription ---
   React.useEffect(() => {
@@ -81,60 +90,72 @@ const Layout: React.FC = () => {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'ventas',
         },
         (payload) => {
-          const newSale = payload.new as any;
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          const eventType = payload.eventType;
 
-          // No notificar al mismo cajero que acaba de hacer la venta en ESTE equipo
-          if (newSale.cajero_id === user.id) return;
+          // Filtering by business - Important!
+          // For INSERT/UPDATE, we check the new record.
+          if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRecord.negocio_id !== user.negocioId) {
+            return;
+          }
 
-          // Construct the notification message
+          // For DELETE, we might not have negocio_id unless replica identity is FULL.
+          // Fallback: we check if we already have this sale in our local notifications.
+          if (eventType === 'DELETE') {
+            const saleId = oldRecord.id;
+            const exists = notifications.some(n => n.saleId === saleId);
+            if (!exists) return; // If we didn't know about it, it's likely not ours or not relevant.
+          }
+
+          let title = '';
+          let message = '';
+          let saleId = (newRecord || oldRecord)?.id;
+
           const totalFormatted = new Intl.NumberFormat('es-CO', {
             style: 'currency',
             currency: 'COP',
             minimumFractionDigits: 0
-          }).format(newSale.total || 0);
+          }).format((newRecord || oldRecord)?.total || 0);
 
-          const message = `Se registró una venta por ${totalFormatted}`;
-          const title = '💰 ¡Nueva Venta!';
+          if (eventType === 'INSERT') {
+            if (newRecord.usuario_id === user.id) return; // Don't notify the one who made the sale
+            title = '💰 ¡Nueva Venta!';
+            message = `Se registró una venta por ${totalFormatted}`;
+          } else if (eventType === 'UPDATE') {
+            title = '📝 Venta Editada';
+            message = `Se actualizó la venta por ${totalFormatted}`;
+          } else if (eventType === 'DELETE') {
+            title = '🗑️ Venta Eliminada';
+            message = `Se eliminó una venta por ${totalFormatted}`;
+          }
 
-          // Agregar al historial del panel
+          // In-App Notification
           const newNotification: NotificationItem = {
-            id: newSale.id || Date.now().toString(),
+            id: `${saleId}-${Date.now()}`,
             title,
             message,
             read: false,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            saleId,
+            actionType: eventType.toLowerCase() as any
           };
           setNotifications(prev => [newNotification, ...prev]);
 
-          // 1. Show In-App Toast
+          // Toast Alert
           toast.success(message, {
-            duration: 6000,
-            position: 'top-right',
-            icon: '🔔',
-            style: {
-              background: '#fff',
-              color: '#1f2937',
-              fontWeight: '500',
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-            },
+            icon: eventType === 'INSERT' ? '💰' : eventType === 'UPDATE' ? '📝' : '🗑️',
+            duration: 5000
           });
 
-          // 2. Trigger System/Mobile Push Notification
+          // System Notification
           if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-              new Notification(title, {
-                body: message,
-                icon: '/nexus-icon.png' // Assuming you have a PWA icon here
-              });
-            } catch (e) {
-              console.error('Error triggering push notification', e);
-            }
+            new Notification(title, { body: message });
           }
         }
       )
@@ -143,7 +164,18 @@ const Layout: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, notifications]); // Added notifications to dependency for DELETE filter logic
+
+  const handleNotificationClick = (n: NotificationItem) => {
+    // Marcar como leída
+    setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item));
+
+    // Si es una venta, navegar al historial de ventas y resaltar la venta
+    if (n.saleId) {
+      navigate('/sales', { state: { highlightSaleId: n.saleId } });
+      setNotificationsOpen(false);
+    }
+  };
 
   // --- Lógica de Autenticación y Carga (sin cambios) ---
   if (loading) {
@@ -200,6 +232,7 @@ const Layout: React.FC = () => {
         setOpen={setNotificationsOpen}
         notifications={notifications}
         markAllAsRead={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+        onNotificationClick={handleNotificationClick}
       />
     </div>
   );
