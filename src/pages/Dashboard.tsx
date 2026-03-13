@@ -172,7 +172,7 @@ const Dashboard: React.FC = () => {
             pendingCreditsAmount += sale.saldo_pendiente;
           }
         }
-        
+
         const currentAmount = paymentMethods.get(sale.metodo_pago) || 0;
         paymentMethods.set(sale.metodo_pago, currentAmount + sale.total);
       });
@@ -203,11 +203,11 @@ const Dashboard: React.FC = () => {
         sale.detalle_ventas.forEach(detail => {
           const productName = detail.producto.nombre;
           const currentStats = productStats.get(productName) || { quantity: 0, amount: 0 };
-          
+
           currentStats.quantity += detail.cantidad;
           currentStats.amount += detail.cantidad * detail.precio_unitario;
           totalQuantity += detail.cantidad;
-          
+
           productStats.set(productName, currentStats);
         });
       });
@@ -234,14 +234,14 @@ const Dashboard: React.FC = () => {
 
       // Process daily sales data for the selected date range
       const dailySales = new Map<string, number>();
-      
+
       if (dateMode === 'single') {
         // For single day, show hourly data
         for (let hour = 0; hour < 24; hour++) {
           const hourLabel = `${hour.toString().padStart(2, '0')}:00`;
           dailySales.set(hourLabel, 0);
         }
-        
+
         salesData?.forEach(sale => {
           const hour = new Date(sale.creada_en).getHours();
           const hourLabel = `${hour.toString().padStart(2, '0')}:00`;
@@ -253,7 +253,7 @@ const Dashboard: React.FC = () => {
           const day = format(d, 'dd/MM', { locale: es });
           dailySales.set(day, 0);
         }
-        
+
         salesData?.forEach(sale => {
           const date = new Date(sale.creada_en);
           const day = format(date, 'dd/MM', { locale: es });
@@ -318,117 +318,117 @@ const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6 min-h-full">
       {/* Header with Date Controls */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-2xl p-6 text-white shadow-xl relative z-10">
+      <div className="bg-white rounded-2xl p-6 shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-gray-100 relative z-10">
         <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2">📊 Dashboard Ejecutivo</h1>
-            <p className="text-primary-100 text-lg">
-              {dateMode === 'single' ? '📅 Análisis del día' : '📊 Análisis del período'}: {formatDateRange()}
+            <h1 className="text-2xl font-black text-gray-900 mb-1 flex items-center">
+              <Activity className="w-6 h-6 text-primary-600 mr-2" />
+              Dashboard Ejecutivo
+            </h1>
+            <p className="text-gray-500 text-sm font-medium">
+              {dateMode === 'single' ? 'Análisis del día' : 'Análisis del período'}: <span className="text-gray-900 font-bold">{formatDateRange()}</span>
             </p>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             {/* Botones de selección rápida */}
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => handleQuickDateSelect(0)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  dateMode === 'single' && format(startDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
-                    ? 'bg-white text-primary-600 shadow-lg transform scale-105'
-                    : 'bg-primary-500 text-white hover:bg-primary-400'
-                }`}
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${dateMode === 'single' && format(startDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                  ? 'bg-primary-50 text-primary-700 border border-primary-200 shadow-sm'
+                  : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
               >
-                <Calendar className="h-4 w-4 mr-1 inline" />
+                <Calendar className="h-4 w-4 mr-1.5 inline -mt-0.5" />
                 Hoy
               </button>
               <button
                 onClick={() => handleQuickDateSelect(7)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  dateMode === 'range' && differenceInDays(endDate, startDate) === 6
-                    ? 'bg-white text-primary-600 shadow-lg transform scale-105'
-                    : 'bg-primary-500 text-white hover:bg-primary-400'
-                }`}
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${dateMode === 'range' && differenceInDays(endDate, startDate) === 6
+                  ? 'bg-primary-50 text-primary-700 border border-primary-200 shadow-sm'
+                  : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
               >
                 7 días
               </button>
               <button
                 onClick={() => handleQuickDateSelect(30)}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  dateMode === 'range' && differenceInDays(endDate, startDate) === 29
-                    ? 'bg-white text-primary-600 shadow-lg transform scale-105'
-                    : 'bg-primary-500 text-white hover:bg-primary-400'
-                }`}
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${dateMode === 'range' && differenceInDays(endDate, startDate) === 29
+                  ? 'bg-primary-50 text-primary-700 border border-primary-200 shadow-sm'
+                  : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
               >
                 30 días
               </button>
             </div>
-            
+
             {/* Selector de fechas personalizado */}
-              <DateRangePicker
-                startDate={startDate}
-                endDate={endDate}
-                onChange={handleDateRangeChange}
-              />
+            <DateRangePicker
+              startDate={startDate}
+              endDate={endDate}
+              onChange={handleDateRangeChange}
+            />
           </div>
         </div>
       </div>
-      
+
       {/* Enhanced Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 dashboard-content">
         <StatsCard
           title={dateMode === 'single' ? "Ventas del Día" : "Ventas del Período"}
           value={`$${stats.totalSales.toLocaleString()}`}
           icon={<TrendingUp className="h-6 w-6" />}
-          subtitle={dateMode === 'single' ? 
+          subtitle={dateMode === 'single' ?
             `${stats.totalOrders} ${stats.totalOrders === 1 ? 'orden' : 'órdenes'} realizadas` :
             `Promedio: $${Math.round(stats.totalSales / Math.max(differenceInDays(endDate, startDate) + 1, 1)).toLocaleString()}/día`
           }
-          iconBgColor="bg-gradient-to-br from-green-400 to-green-600"
-          iconTextColor="text-white"
-          cardBgColor="bg-gradient-to-br from-green-50 to-green-100"
-          borderColor="border-green-200"
+          iconBgColor="bg-green-100"
+          iconTextColor="text-green-600"
+          cardBgColor="bg-white"
+          borderColor="border-gray-100 shadow-sm hover:shadow-md transition-shadow"
         />
-        
+
         <StatsCard
           title={dateMode === 'single' ? "Órdenes del Día" : "Total Órdenes"}
           value={stats.totalOrders}
           icon={<ShoppingBag className="h-6 w-6" />}
           subtitle={`${stats.deliveryOrders} domicilios • ${stats.totalOrders - stats.deliveryOrders} locales`}
-          iconBgColor="bg-gradient-to-br from-blue-400 to-blue-600"
-          iconTextColor="text-white"
-          cardBgColor="bg-gradient-to-br from-blue-50 to-blue-100"
-          borderColor="border-blue-200"
+          iconBgColor="bg-blue-100"
+          iconTextColor="text-blue-600"
+          cardBgColor="bg-white"
+          borderColor="border-gray-100 shadow-sm hover:shadow-md transition-shadow"
         />
-        
+
         <StatsCard
           title="Ticket Promedio"
           value={`$${stats.averageTicket.toLocaleString()}`}
           icon={<DollarSign className="h-6 w-6" />}
           subtitle={`Método principal: ${stats.topPaymentMethod.toUpperCase()}`}
-          iconBgColor="bg-gradient-to-br from-purple-400 to-purple-600"
-          iconTextColor="text-white"
-          cardBgColor="bg-gradient-to-br from-purple-50 to-purple-100"
-          borderColor="border-purple-200"
+          iconBgColor="bg-purple-100"
+          iconTextColor="text-purple-600"
+          cardBgColor="bg-white"
+          borderColor="border-gray-100 shadow-sm hover:shadow-md transition-shadow"
         />
-        
+
         <StatsCard
           title={dateMode === 'single' ? "Clientes Atendidos" : "Total Clientes"}
           value={stats.totalClients}
           icon={<Users className="h-6 w-6" />}
           subtitle={stats.creditSales > 0 ? `${stats.creditSales} ventas a crédito` : 'Sin ventas a crédito'}
-          iconBgColor="bg-gradient-to-br from-orange-400 to-orange-600"
-          iconTextColor="text-white"
-          cardBgColor="bg-gradient-to-br from-orange-50 to-orange-100"
-          borderColor="border-orange-200"
+          iconBgColor="bg-orange-100"
+          iconTextColor="text-orange-600"
+          cardBgColor="bg-white"
+          borderColor="border-gray-100 shadow-sm hover:shadow-md transition-shadow"
         />
       </div>
 
       {/* Additional Stats Row for Credits */}
       {stats.pendingCredits > 0 && (
-        <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-xl p-6 shadow-lg">
+        <div className="bg-white border border-red-100 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="p-3 bg-gradient-to-br from-red-400 to-red-600 text-white rounded-xl shadow-lg mr-4">
+              <div className="p-3 bg-red-50 text-red-600 rounded-xl mr-4">
                 <CreditCard className="h-6 w-6" />
               </div>
               <div>
@@ -445,10 +445,10 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center">
               <Activity className="h-6 w-6 mr-2 text-primary-600" />
@@ -458,22 +458,22 @@ const Dashboard: React.FC = () => {
               {formatDateRange()}
             </div>
           </div>
-          <WeeklySalesChart 
-            salesData={salesData} 
+          <WeeklySalesChart
+            salesData={salesData}
             title={dateMode === 'single' ? 'Ventas por Hora' : 'Ventas Diarias'}
             isHourly={dateMode === 'single'}
           />
         </div>
-        
+
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-            <TopProducts 
-              products={topProducts} 
+          <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100">
+            <TopProducts
+              products={topProducts}
               title={dateMode === 'single' ? 'Productos del Día' : 'Productos Top'}
             />
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-            <ProductQuantityChart 
+          <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100">
+            <ProductQuantityChart
               products={productQuantities}
               title={dateMode === 'single' ? 'Cantidades del Día' : 'Cantidades Vendidas'}
             />
@@ -482,7 +482,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Recent Sales Table */}
-      <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+      <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center">
             <Package className="h-6 w-6 mr-2 text-primary-600" />
@@ -492,7 +492,7 @@ const Dashboard: React.FC = () => {
             {recentSales.length} {recentSales.length === 1 ? 'venta' : 'ventas'}
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -547,9 +547,8 @@ const Dashboard: React.FC = () => {
                     )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      sale.es_domicilio ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${sale.es_domicilio ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
                       {sale.es_domicilio ? (
                         <>
                           <Truck className="h-3 w-3 mr-1" />
@@ -571,16 +570,15 @@ const Dashboard: React.FC = () => {
                     )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      sale.estado === 'pagada' ? 'bg-green-100 text-green-800' :
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${sale.estado === 'pagada' ? 'bg-green-100 text-green-800' :
                       sale.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
+                        'bg-red-100 text-red-800'
+                      }`}>
                       {sale.estado}
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
+                    <button
                       className="text-primary-600 hover:text-primary-900 group relative"
                       onClick={() => handleViewSale(sale)}
                     >

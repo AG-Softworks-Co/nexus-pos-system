@@ -125,13 +125,13 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
     <div className="relative ml-auto mr-4" ref={containerRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white hover:bg-white/30 transition-all duration-200 min-w-[240px] justify-between"
+        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200 min-w-[260px] justify-between shadow-[0_2px_4px_rgba(0,0,0,0.02)]"
       >
         <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4" />
+          <Calendar className="h-4 w-4 text-gray-500" />
           <span className="text-sm font-medium">{formatDateRange()}</span>
         </div>
-        <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+        <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
       </button>
 
       {isOpen && (

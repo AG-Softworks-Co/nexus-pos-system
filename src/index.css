@@ -16,6 +16,21 @@
   --color-primary-950: #1e1b4b;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════════ */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari and Opera */
+}
+
 @layer base {
   html {
     @apply text-gray-900;
@@ -1017,28 +1032,7 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
-/* Subtle top accent bar */
-.nexus-header::before {
-  content: '';
-  display: block;
-  height: 3px;
-  background: linear-gradient(90deg, var(--color-primary-500), var(--color-primary-700), #7c3aed, var(--color-primary-500));
-  background-size: 200% 100%;
-  animation: nexusHeaderShift 8s ease infinite;
-}
-
-@keyframes nexusHeaderShift {
-
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
+/* Subtle top accent bar removed for cleaner Enterprise look */
 .nexus-header-inner {
   display: flex;
   align-items: center;
