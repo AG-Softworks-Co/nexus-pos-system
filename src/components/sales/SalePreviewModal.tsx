@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Phone, MapPin, Truck, RefreshCw, ArrowLeft, Percent, DollarSign } from 'lucide-react';
+import { X, Calendar, Phone, MapPin, RefreshCw, Percent, User, Package, ShoppingBag, CreditCard, FileText, DollarSign } from 'lucide-react';
 import { formatDisplayDate } from '../../utils/dateUtils';
 import type { Sale } from '../../types/sales';
 import { supabase } from '../../lib/supabase';
@@ -29,7 +29,6 @@ const SalePreviewModal: React.FC<SalePreviewModalProps> = ({ sale, onClose, onGe
       cantidad_devuelta: number;
     }[];
   } | null>(null);
-  const [loading, setLoading] = useState(false);
   const [partialPayments, setPartialPayments] = useState<PartialPayment[]>([]);
 
   useEffect(() => {
@@ -37,10 +36,9 @@ const SalePreviewModal: React.FC<SalePreviewModalProps> = ({ sale, onClose, onGe
     if (sale.metodo_pago === 'credito') {
       fetchPartialPayments();
     }
-  }, [sale.id]);
+  }, [sale.id, sale.metodo_pago]);
 
   const fetchReturnInfo = async () => {
-    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('devoluciones')
@@ -62,8 +60,6 @@ const SalePreviewModal: React.FC<SalePreviewModalProps> = ({ sale, onClose, onGe
       setReturnInfo(data);
     } catch (err) {
       console.error('Error fetching return info:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -82,7 +78,6 @@ const SalePreviewModal: React.FC<SalePreviewModalProps> = ({ sale, onClose, onGe
     }
   };
 
-  // Create a map of returned quantities by detail_id
   const returnedQuantities: Record<string, number> = {};
   if (returnInfo?.detalle_devoluciones) {
     returnInfo.detalle_devoluciones.forEach(detail => {
@@ -90,352 +85,256 @@ const SalePreviewModal: React.FC<SalePreviewModalProps> = ({ sale, onClose, onGe
     });
   }
 
-  // Calculate subtotal from products
-  const subtotalProductos = sale.detalle_ventas.reduce((sum, item) => {
-    const returnedQty = returnedQuantities[item.id] || 0;
-    const effectiveQty = item.cantidad - returnedQty;
-    return sum + (effectiveQty * item.precio_unitario);
-  }, 0);
-
-  // Calculate effective total after returns
   const effectiveTotal = returnInfo ? sale.total - returnInfo.monto_devolucion : sale.total;
-
-  // Calculate total paid from partial payments
   const totalPagado = partialPayments.reduce((sum, p) => sum + p.monto, 0);
 
-  const handleDownloadPDF = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    console.log('🎫 MODAL: Botón PDF clickeado, iniciando descarga...');
-    console.log('📊 MODAL: Datos de la venta:', sale);
-
-    try {
-      onGeneratePDF(sale);
-      console.log('✅ MODAL: Función onGeneratePDF llamada exitosamente');
-    } catch (error) {
-      console.error('❌ MODAL: Error al llamar onGeneratePDF:', error);
-      alert('Error al generar el PDF: ' + (error as Error).message);
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto modal-backdrop">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose}></div>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+      
+      <div className="relative w-full max-w-3xl bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl animate-in zoom-in slide-in-from-bottom duration-400 flex flex-col max-h-[92vh] overflow-hidden">
+        {/* Header Premium */}
+        <div className="p-8 pb-6 border-b border-slate-50 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-6">
+             <div className="h-20 w-20 rounded-[1.5rem] bg-slate-900 flex items-center justify-center text-white shadow-xl shadow-slate-200">
+                <ShoppingBag className="h-10 w-10" />
+             </div>
+             <div>
+                <div className="flex items-center gap-2 mb-1">
+                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocolo de Operación</span>
+                   <span className={`px-3 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${sale.estado === 'cancelada' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                      {sale.estado === 'cancelada' ? 'Cancelada' : 'Confirmada'}
+                   </span>
+                </div>
+                <h3 className="text-3xl font-black text-slate-900 font-outfit leading-none tracking-tight uppercase">Venta #{sale.id.slice(0, 8)}</h3>
+                <p className="text-slate-500 font-bold text-xs mt-2 flex items-center gap-2">
+                   <Calendar className="h-3.5 w-3.5 opacity-40 text-primary-600" /> {formatDisplayDate(sale.creada_en)}
+                </p>
+             </div>
+          </div>
+          <button onClick={onClose} className="p-3 hover:bg-slate-50 rounded-full transition-all border border-transparent hover:border-slate-100">
+            <X className="h-6 w-6 text-slate-300" />
+          </button>
+        </div>
 
-        <div className="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg sm:my-16 modal-content">
-          <div className="absolute top-0 right-0 pt-4 pr-4">
-            <button
-              className="text-gray-400 hover:text-gray-500 focus:outline-none"
-              onClick={onClose}
-            >
-              <X className="w-6 h-6" />
-            </button>
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-8 pt-6 space-y-8 scrollbar-hide">
+          {/* Alerts Section (Returns & Discounts) */}
+          <div className="space-y-3">
+             {returnInfo ? (
+              <div className="bg-rose-50 border border-rose-100 p-5 rounded-[1.5rem] flex items-start gap-4 animate-in slide-in-from-top">
+                <RefreshCw className="h-6 w-6 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest leading-none mb-1">Devolución Detectada</p>
+                  <p className="text-sm font-black text-rose-900 leading-tight">Monto acreditado: ${returnInfo.monto_devolucion.toLocaleString()}</p>
+                  <p className="text-[10px] font-bold text-rose-400 mt-1 uppercase">Aprobada comercialmente</p>
+                </div>
+              </div>
+            ) : null}
+
+            {sale.descuento_total && sale.descuento_total > 0 ? (
+              <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-[1.5rem] flex items-start gap-4 animate-in slide-in-from-top">
+                <Percent className="h-6 w-6 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-1">Beneficio Comercial</p>
+                  <p className="text-sm font-black text-emerald-900 leading-tight">Descuento aplicado: ${sale.descuento_total.toLocaleString()} ({sale.descuento_porcentaje_total}%)</p>
+                  {sale.razon_descuento && <p className="text-[10px] font-bold text-emerald-400 mt-1 uppercase">Razón: {sale.razon_descuento}</p>}
+                </div>
+              </div>
+            ) : null}
           </div>
 
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900">
-                Detalle de Venta #{sale.id.slice(0, 8)}
-              </h3>
-              {sale.estado === 'cancelada' && (
-                <div className="mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                  VENTA CANCELADA
+          {/* Core Info Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 flex items-center gap-5">
+                <div className="h-12 w-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-slate-400">
+                    <User className="h-6 w-6" />
                 </div>
-              )}
-            </div>
-            <div className="flex items-center">
-              <button
-                onClick={() => { fetchReturnInfo(); if (sale.metodo_pago === 'credito') fetchPartialPayments(); }}
-                className="mr-2 p-1 rounded-full hover:bg-gray-100"
-                title="Actualizar información"
-              >
-                <RefreshCw className="h-4 w-4 text-gray-500" />
-              </button>
-              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${sale.estado === 'pagada' ? 'bg-green-100 text-green-800' :
-                  sale.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                }`}>
-                {sale.estado}
-              </span>
-            </div>
+                <div className="min-w-0">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Responsable</p>
+                   <p className="text-sm font-black text-slate-900 uppercase truncate">{sale.usuario?.nombre_completo || 'N/A'}</p>
+                </div>
+             </div>
+             <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 flex items-center gap-5">
+                <div className="h-12 w-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-slate-400">
+                    <CreditCard className="h-6 w-6" />
+                </div>
+                <div className="min-w-0">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Modalidad de Pago</p>
+                   <p className="text-sm font-black text-slate-900 uppercase font-outfit truncate">{getPaymentLabel(sale.metodo_pago)} - {sale.estado_pago || sale.estado}</p>
+                </div>
+             </div>
           </div>
 
-          {returnInfo && (
-            <div className="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
-              <div className="flex">
-                <ArrowLeft className="h-5 w-5 text-yellow-400 mr-2" />
-                <div>
-                  <p className="text-sm font-medium text-yellow-800">
-                    Devolución {returnInfo.tipo_devolucion} por ${returnInfo.monto_devolucion.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-yellow-700 mt-1">
-                    Esta venta tiene una devolución aprobada. Los valores mostrados reflejan los ajustes.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Información de descuento si existe */}
-          {sale.descuento_total && sale.descuento_total > 0 && (
-            <div className="mb-4 bg-green-50 border-l-4 border-green-400 p-4 rounded-md">
-              <div className="flex">
-                <Percent className="h-5 w-5 text-green-400 mr-2" />
-                <div>
-                  <p className="text-sm font-medium text-green-800">
-                    Descuento aplicado: ${sale.descuento_total.toLocaleString()}
-                    {sale.descuento_porcentaje_total && sale.descuento_porcentaje_total > 0 && (
-                      <span className="ml-1">({sale.descuento_porcentaje_total}%)</span>
-                    )}
-                  </p>
-                  {sale.razon_descuento && (
-                    <p className="text-xs text-green-700 mt-1">
-                      Razón: {sale.razon_descuento}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-6">
-            {/* Sale Info */}
-            <div className="bg-gray-50 p-4 rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <div className="flex items-center text-sm text-gray-500">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  {formatDisplayDate(sale.creada_en)}
-                </div>
-                <div className="mt-2 text-sm font-medium">
-                  Vendedor: {sale.usuario.nombre_completo}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-900">
-                  Método de pago: <span className="capitalize">{sale.metodo_pago}</span>
-                </div>
-                <div className="mt-1 text-sm text-gray-500">
-                  Estado: <span className="capitalize">{sale.estado_pago || sale.estado}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Client Info */}
-            {sale.cliente && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Información del Cliente</h4>
-                <div className="space-y-2">
-                  <p className="text-sm">{sale.cliente.nombre_completo}</p>
-                  {sale.cliente.telefono && (
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Phone className="h-4 w-4 mr-2" />
-                      {sale.cliente.telefono}
+          {/* Client Details Section */}
+          {sale.cliente ? (
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Datos del Cliente</h4>
+              <div className="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex flex-col sm:flex-row justify-between gap-6 items-start sm:items-center group">
+                 <div className="flex items-center gap-5">
+                    <div className="h-14 w-14 rounded-2xl bg-primary-600 flex items-center justify-center text-white shadow-lg shadow-primary-200 font-black text-xl">
+                       {sale.cliente.nombre_completo.charAt(0)}
                     </div>
-                  )}
-                  {sale.es_domicilio && sale.direccion_entrega && (
-                    <div className="mt-3">
-                      <div className="flex items-start text-sm text-gray-500">
-                        <MapPin className="h-4 w-4 mr-2 mt-0.5" />
-                        <div>
-                          <p>{sale.direccion_entrega.direccion}</p>
-                          {sale.direccion_entrega.referencias && (
-                            <p className="mt-1 text-xs">Ref: {sale.direccion_entrega.referencias}</p>
-                          )}
+                    <div>
+                      <p className="text-lg font-black text-slate-900 font-outfit">{sale.cliente.nombre_completo}</p>
+                      <div className="flex items-center gap-4 mt-1">
+                         <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                            <Phone className="h-3.5 w-3.5 text-primary-400" /> {sale.cliente.telefono || 'Sin teléfono'}
+                         </div>
+                      </div>
+                    </div>
+                 </div>
+                 
+                 {sale.es_domicilio && sale.direccion_entrega ? (
+                    <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-2xl max-w-sm">
+                       <MapPin className="h-4 w-4 text-rose-500 shrink-0 mt-1" />
+                       <div className="min-w-0">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Entrega Logistic</p>
+                          <p className="text-xs font-bold text-slate-700 line-clamp-2 leading-relaxed">{sale.direccion_entrega.direccion}</p>
+                       </div>
+                    </div>
+                 ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Advanced Product Table */}
+          <div className="space-y-4">
+             <div className="flex items-center justify-between ml-2">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Composición de Productos</h4>
+                <span className="text-[10px] font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-full">{sale.detalle_ventas?.length || 0} Items</span>
+             </div>
+             
+             <div className="bg-white border border-slate-100 rounded-[2.5rem] shadow-sm overflow-hidden">
+                <div className="bg-slate-50/50 px-8 py-5 border-b border-slate-50 grid grid-cols-4 gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                   <div className="col-span-2">Producto / Especificación</div>
+                   <div className="text-center">Cant.</div>
+                   <div className="text-right">Monto Unit.</div>
+                </div>
+                <div className="divide-y divide-slate-50">
+                   {sale.detalle_ventas && sale.detalle_ventas.length > 0 ? (
+                     sale.detalle_ventas.map((item) => {
+                        const returnedQty = returnedQuantities[item.id] || 0;
+                        const hasReturn = returnedQty > 0;
+                        return (
+                          <div key={item.id} className="px-8 py-5 group hover:bg-slate-50/30 transition-colors">
+                             <div className="grid grid-cols-4 gap-4 items-center">
+                                <div className="col-span-2">
+                                   <p className="text-sm font-black text-slate-800 leading-none mb-1 group-hover:text-primary-600 transition-colors">{item.producto?.nombre || 'Producto no disponible'}</p>
+                                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">SKU: {item.producto?.sku || 'N/A'}</p>
+                                </div>
+                                <div className="text-center">
+                                   <p className={`text-sm font-black font-outfit ${hasReturn ? 'text-rose-600' : 'text-slate-800'}`}>
+                                      {item.cantidad - returnedQty}
+                                      {hasReturn ? <span className="text-[10px] opacity-40 ml-1">(-{returnedQty})</span> : null}
+                                   </p>
+                                </div>
+                                <div className="text-right">
+                                   <p className="text-sm font-black text-slate-900 font-outfit">${item.precio_unitario.toLocaleString()}</p>
+                                </div>
+                             </div>
+                          </div>
+                        );
+                     })
+                   ) : (
+                     <div className="px-8 py-10 text-center">
+                        <Package className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No hay detalles de productos disponibles</p>
+                     </div>
+                   )}
+                </div>
+             </div>
+          </div>
+
+          {/* Nested Payment History (for Credit) */}
+          {sale.metodo_pago === 'credito' && partialPayments.length > 0 ? (
+             <div className="space-y-4 animate-in slide-in-from-bottom duration-700">
+                <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] ml-2">Trazabilidad de Abonos</h4>
+                <div className="bg-emerald-50/30 border border-emerald-100 rounded-[2.5rem] overflow-hidden">
+                   <div className="p-8 space-y-4">
+                      {partialPayments.map((payment) => (
+                        <div key={payment.id} className="flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-emerald-100 transition-all hover:scale-[1.01]">
+                           <div className="flex items-center gap-4">
+                              <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-inner">
+                                 <DollarSign className="h-5 w-5" />
+                              </div>
+                              <div>
+                                 <p className="text-xs font-black text-slate-900 uppercase">{payment.metodo_pago}</p>
+                                 <p className="text-[10px] font-bold text-slate-400">{formatDisplayDate(payment.fecha_pago)}</p>
+                              </div>
+                           </div>
+                           <p className="text-lg font-black text-emerald-600 font-outfit">${payment.monto.toLocaleString()}</p>
                         </div>
-                      </div>
-                    </div>
-                  )}
+                      ))}
+                   </div>
+                   <div className="px-8 py-5 bg-emerald-600/5 flex justify-between items-center text-emerald-700">
+                      <span className="text-[10px] font-black uppercase tracking-widest">Total Amortizado</span>
+                      <span className="text-xl font-black font-outfit">${totalPagado.toLocaleString()}</span>
+                   </div>
                 </div>
+             </div>
+          ) : null}
+        </div>
+
+        {/* Global Footer Financials */}
+        <div className="p-8 pt-6 bg-slate-50 border-t border-slate-100 shrink-0">
+           <div className="max-w-md ml-auto space-y-3">
+              <div className="flex justify-between items-center">
+                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Base Imponible</span>
+                 <span className="text-sm font-bold text-slate-600">${sale.total.toLocaleString()}</span>
               </div>
-            )}
-
-            {/* Products */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-3">Productos</h4>
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-medium text-gray-500 uppercase">
-                    <div>Producto</div>
-                    <div className="text-right">Cantidad</div>
-                    <div className="hidden sm:block text-right">Precio Unit.</div>
-                    <div className="text-right">Subtotal</div>
-                  </div>
+              
+              {returnInfo ? (
+                <div className="flex justify-between items-center text-rose-600">
+                   <span className="text-[10px] font-black uppercase tracking-widest">Ajuste por Devolución</span>
+                   <span className="text-sm font-black">- ${returnInfo.monto_devolucion.toLocaleString()}</span>
                 </div>
-                <div className="divide-y divide-gray-200">
-                  {sale.detalle_ventas.map((item) => {
-                    const returnedQty = returnedQuantities[item.id] || 0;
-                    const effectiveQty = item.cantidad - returnedQty;
-                    const effectiveSubtotal = effectiveQty * item.precio_unitario;
+              ) : null}
 
-                    return (
-                      <div key={item.id} className="px-4 py-3">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 items-center">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{item.producto.nombre}</p>
-                            {item.producto.sku && (
-                              <p className="text-xs text-gray-500">SKU: {item.producto.sku}</p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm">
-                              {effectiveQty}
-                              {returnedQty > 0 && (
-                                <span className="text-red-600 ml-1">(-{returnedQty})</span>
-                              )}
-                            </p>
-                          </div>
-                          <div className="hidden sm:block text-right">
-                            <p className="text-sm">${item.precio_unitario.toLocaleString()}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium">
-                              ${effectiveSubtotal.toLocaleString()}
-                              {returnedQty > 0 && (
-                                <span className="text-xs text-red-600 block">
-                                  (${(item.cantidad * item.precio_unitario).toLocaleString()} - ${(returnedQty * item.precio_unitario).toLocaleString()})
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+                 <span className="text-base font-black text-slate-900 font-outfit uppercase">Total Neto de Cierre</span>
+                 <span className="text-3xl font-black text-slate-900 font-outfit tracking-tighter">${effectiveTotal.toLocaleString()}</span>
               </div>
-            </div>
 
-            {/* Totals */}
-            <div className="border-t border-gray-200 pt-4">
-              <div className="space-y-2">
-                {/* Subtotal original */}
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>Subtotal</span>
-                  <span>${(sale.subtotal_antes_descuento || subtotalProductos).toLocaleString()}</span>
-                </div>
+              {sale.metodo_pago === 'credito' && sale.saldo_pendiente !== undefined && sale.saldo_pendiente !== null ? (
+                 <div className="flex justify-between items-center p-3 bg-amber-100 rounded-xl text-amber-700 animate-pulse">
+                    <span className="text-[10px] font-black uppercase tracking-widest">Exposición de Riesgo (Saldo)</span>
+                    <span className="text-lg font-black font-outfit">${sale.saldo_pendiente.toLocaleString()}</span>
+                 </div>
+              ) : null}
+           </div>
 
-                {/* Descuento si aplica */}
-                {sale.descuento_total && sale.descuento_total > 0 && (
-                  <>
-                    <div className="flex justify-between text-sm text-green-600">
-                      <div className="flex items-center">
-                        <span>Descuento aplicado</span>
-                        {sale.descuento_porcentaje_total && sale.descuento_porcentaje_total > 0 && (
-                          <span className="ml-1 text-xs">({sale.descuento_porcentaje_total}%)</span>
-                        )}
-                      </div>
-                      <span>-${sale.descuento_total.toLocaleString()}</span>
-                    </div>
-                    {sale.razon_descuento && (
-                      <div className="text-xs text-gray-500 italic pl-4">
-                        Razón: {sale.razon_descuento}
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Subtotal con descuento</span>
-                      <span>${((sale.subtotal_antes_descuento || subtotalProductos) - (sale.descuento_total || 0)).toLocaleString()}</span>
-                    </div>
-                  </>
-                )}
-
-                {/* Domicilio si aplica */}
-                {sale.es_domicilio && (
-                  <div className="flex justify-between text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <Truck className="h-4 w-4 mr-1" />
-                      <span>Domicilio</span>
-                    </div>
-                    <span>${sale.costo_domicilio.toLocaleString()}</span>
-                  </div>
-                )}
-
-                {/* Devolución si aplica */}
-                {returnInfo && (
-                  <div className="flex justify-between text-sm text-red-500">
-                    <span>Devolución {returnInfo.tipo_devolucion}</span>
-                    <span>-${returnInfo.monto_devolucion.toLocaleString()}</span>
-                  </div>
-                )}
-
-                {/* Total final */}
-                <div className="flex justify-between text-base font-medium text-gray-900 pt-2 border-t border-gray-200">
-                  <span>Total</span>
-                  <span>${effectiveTotal.toLocaleString()}</span>
-                </div>
-
-                {/* Saldo pendiente para créditos */}
-                {sale.metodo_pago === 'credito' && sale.saldo_pendiente !== undefined && sale.saldo_pendiente !== null && (
-                  <div className="flex justify-between text-sm font-medium text-orange-600">
-                    <span>Saldo pendiente</span>
-                    <span>${sale.saldo_pendiente.toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Payment History for Credit Sales */}
-            {sale.metodo_pago === 'credito' && partialPayments.length > 0 && (
-              <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                  <DollarSign className="h-4 w-4 mr-1 text-green-600" />
-                  Historial de Pagos ({partialPayments.length})
-                </h4>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                    <div className="grid grid-cols-3 gap-4 text-xs font-medium text-gray-500 uppercase">
-                      <div>Fecha</div>
-                      <div className="text-right">Monto</div>
-                      <div className="text-right">Método</div>
-                    </div>
-                  </div>
-                  <div className="divide-y divide-gray-200 max-h-40 overflow-y-auto">
-                    {partialPayments.map((payment) => (
-                      <div key={payment.id} className="px-4 py-2">
-                        <div className="grid grid-cols-3 gap-4 items-center">
-                          <div className="text-xs text-gray-500">{formatDisplayDate(payment.fecha_pago)}</div>
-                          <div className="text-right text-sm font-medium text-green-600">${payment.monto.toLocaleString()}</div>
-                          <div className="text-right text-xs text-gray-500 capitalize">{payment.metodo_pago}</div>
-                        </div>
-                        {payment.notas && (
-                          <p className="text-xs text-gray-400 mt-1 italic">{payment.notas}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="bg-green-50 px-4 py-2 border-t border-gray-200">
-                    <div className="flex justify-between text-sm font-medium text-green-700">
-                      <span>Total pagado:</span>
-                      <span>${totalPagado.toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="mt-6 flex flex-col sm:flex-row-reverse gap-3">
+           <div className="mt-10 flex flex-col sm:flex-row-reverse gap-3">
               <button
-                type="button"
-                className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:w-auto"
-                onClick={handleDownloadPDF}
+                onClick={() => onGeneratePDF(sale)}
+                className="flex-1 inline-flex items-center justify-center gap-3 py-5 bg-slate-900 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-300 hover:bg-slate-800 transition-all active:scale-[0.98]"
               >
-                Descargar Ticket
+                <FileText className="h-5 w-5" />
+                Audit PDF Receipt
               </button>
               <button
-                type="button"
-                className="w-full inline-flex justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:w-auto"
                 onClick={onClose}
+                className="px-10 py-5 bg-white border border-slate-200 text-slate-400 rounded-[2rem] text-xs font-black uppercase tracking-widest hover:bg-slate-50 hover:text-slate-600 transition-all"
               >
-                Cerrar
+                Finalizar Auditoría
               </button>
-            </div>
-          </div>
+           </div>
         </div>
       </div>
     </div>
   );
+};
+
+const getPaymentLabel = (method: string) => {
+  const map: Record<string, string> = {
+    efectivo: 'Efectivo',
+    tarjeta: 'Tarjeta',
+    bancolombia: 'Bancolombia',
+    nequi: 'Nequi',
+    daviplata: 'Daviplata',
+    credito: 'Crédito',
+  };
+  return map[method] || method;
 };
 
 export default SalePreviewModal;

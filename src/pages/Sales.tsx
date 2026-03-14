@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { FileSpreadsheet, ArrowLeft } from 'lucide-react';
+import { FileSpreadsheet, ArrowLeft, TrendingUp, DollarSign, CreditCard, ShoppingBag, Search, Filter, Calendar as CalendarIcon, RefreshCcw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import SalesTable from '../components/sales/SalesTable';
@@ -35,7 +35,6 @@ const Sales: React.FC = () => {
     new Date()
   ]);
 
-  // Filter states
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
     dateFilter: 'all',
@@ -51,7 +50,6 @@ const Sales: React.FC = () => {
     }
   }, [user, filters.historyFilter]);
 
-  // Handle highlighted sale from navigation state
   useEffect(() => {
     if (!loading && sales.length > 0 && location.state?.highlightSaleId) {
       const saleId = location.state.highlightSaleId;
@@ -59,7 +57,6 @@ const Sales: React.FC = () => {
       if (sale) {
         setSelectedSale(sale);
         setShowDetailModal(true);
-        // Clean up state to avoid re-opening on manual refreshes
         window.history.replaceState({}, document.title);
       }
     }
@@ -69,9 +66,7 @@ const Sales: React.FC = () => {
     setLoading(true);
     try {
       let salesData = [];
-
       if (filters.historyFilter === 'deleted') {
-        // Fetch deleted sales from history
         const { data: historyData, error: historyError } = await supabase
           .from('historial_ventas')
           .select('*')
@@ -79,8 +74,6 @@ const Sales: React.FC = () => {
           .order('creado_en', { ascending: false });
 
         if (historyError) throw historyError;
-
-        // Transform history data to match sales structure
         salesData = historyData?.map(history => ({
           ...history.datos_anteriores,
           _isDeleted: true,
@@ -88,54 +81,35 @@ const Sales: React.FC = () => {
           _deletedBy: history.usuario_id
         })) || [];
       } else {
-        // Fetch active sales
         const { data, error } = await supabase
           .from('ventas')
           .select(`
             *,
-            usuario:usuario_id (
-              nombre_completo
-            ),
-            cliente:cliente_id (
-              nombre_completo,
-              telefono,
-              correo
-            ),
-            direccion_entrega:direccion_entrega_id (
-              direccion,
-              referencias
-            ),
+            usuario:usuario_id (nombre_completo),
+            cliente:cliente_id (nombre_completo, telefono, correo),
+            direccion_entrega:direccion_entrega_id (direccion, referencias),
             detalle_ventas (
               id,
               cantidad,
               precio_unitario,
-              producto:producto_id (
-                nombre,
-                sku
-              )
+              producto:producto_id (nombre, sku)
             )
           `)
           .eq('negocio_id', user?.negocioId)
           .order('creada_en', { ascending: false });
 
         if (error) throw error;
-
-        // Fetch return information for these sales
         const saleIds = data?.map(sale => sale.id) || [];
         let returnsData: any[] = [];
-
         if (saleIds.length > 0) {
           const { data: returns, error: returnsError } = await supabase
             .from('devoluciones')
             .select('venta_id, monto_devolucion')
             .in('venta_id', saleIds)
             .eq('estado', 'aprobada');
-
           if (returnsError) throw returnsError;
           returnsData = returns || [];
         }
-
-        // Mark sales that have returns
         salesData = data?.map(sale => {
           const saleReturns = returnsData.filter(r => r.venta_id === sale.id);
           return {
@@ -145,50 +119,17 @@ const Sales: React.FC = () => {
           };
         }) || [];
       }
-
       setSales(salesData);
     } catch (err: any) {
       console.error('Error fetching sales:', err);
-      setError(err.message);
+      setError('Error al sincronizar historial de ventas');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleViewSale = (sale: Sale) => {
-    setSelectedSale(sale);
-    setShowDetailModal(true);
-  };
-
-  const handleReturnSale = (sale: Sale) => {
-    setSelectedSale(sale);
-    setShowReturnModal(true);
-  };
-
-  const handleViewReturns = (saleId?: string) => {
-    if (saleId) {
-      setSelectedSale(sales.find(s => s.id === saleId) || null);
-    }
-    setShowReturnsListModal(true);
-  };
-
-  const handleEditSale = (sale: Sale) => {
-    setSelectedSale(sale);
-    setShowEditModal(true);
-  };
-
-  const handleDeleteSale = (sale: Sale) => {
-    setSelectedSale(sale);
-    setShowDeleteModal(true);
-  };
-
-  const handleSaleUpdated = () => {
-    fetchSales();
-  };
-
   const handleExportExcel = async () => {
     if (!exportDateRange[0] || !exportDateRange[1]) return;
-
     const startDate = startOfDay(exportDateRange[0]);
     const endDate = endOfDay(exportDateRange[1]);
 
@@ -212,8 +153,6 @@ const Sales: React.FC = () => {
         .order('creada_en', { ascending: false });
 
       if (error) throw error;
-
-      // Prepare data for export
       const exportData = data.map(sale => {
         const products = sale.detalle_ventas
           .map((detail: any) => `${detail.producto.nombre} (${detail.cantidad}x$${detail.precio_unitario})`)
@@ -224,14 +163,10 @@ const Sales: React.FC = () => {
           'Fecha': formatDateForExcel(sale.creada_en),
           'Vendedor': sale.usuario.nombre_completo,
           'Cliente': sale.cliente?.nombre_completo || '-',
-          'Teléfono': sale.cliente?.telefono || '-',
           'Tipo': sale.es_domicilio ? 'Domicilio' : 'Local',
-          'Dirección': sale.es_domicilio ? sale.direccion_entrega?.direccion || '-' : '-',
-          'Productos': products,
-          'Método de Pago': sale.metodo_pago,
-          'Subtotal': sale.total - (sale.es_domicilio ? sale.costo_domicilio : 0),
-          'Costo Domicilio': sale.es_domicilio ? sale.costo_domicilio : 0,
+          'Dcto': sale.descuento || 0,
           'Total': sale.total,
+          'Método': sale.metodo_pago,
           'Estado': sale.estado_pago || sale.estado
         };
       });
@@ -239,36 +174,18 @@ const Sales: React.FC = () => {
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
-
-      // Auto-size columns
-      const colWidths = Object.keys(exportData[0] || {}).map(key => ({
-        wch: Math.max(key.length, 20)
-      }));
-      ws['!cols'] = colWidths;
-
-      // Generate file name with date range
-      const fileName = `ventas_${formatDateForExcel(startDate.toISOString()).split(' ')[0]}_${formatDateForExcel(endDate.toISOString()).split(' ')[0]
-        }.xlsx`;
-
+      const fileName = `ventas_nexus_${formatDateForExcel(startDate.toISOString()).split(' ')[0]}.xlsx`;
       XLSX.writeFile(wb, fileName);
       setShowExportModal(false);
     } catch (err) {
-      console.error('Error exporting sales:', err);
-      setError('Error al exportar las ventas');
+      setError('Falla al exportar reporte comercial');
     }
   };
 
   const filteredSales = sales.filter(sale => {
-    // Filter by history type
-    if (filters.historyFilter === 'active' && sale._isDeleted) {
-      return false;
-    }
-    if (filters.historyFilter === 'deleted' && !sale._isDeleted) {
-      return false;
-    }
-    if (filters.historyFilter === 'edited' && (!sale.version || sale.version <= 1) && !sale._isDeleted) {
-      return false;
-    }
+    if (filters.historyFilter === 'active' && sale._isDeleted) return false;
+    if (filters.historyFilter === 'deleted' && !sale._isDeleted) return false;
+    if (filters.historyFilter === 'edited' && (!sale.version || sale.version <= 1) && !sale._isDeleted) return false;
 
     const matchesSearch = !filters.searchQuery ||
       sale.id.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
@@ -281,22 +198,18 @@ const Sales: React.FC = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const weekAgo = new Date(today);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-
-    const monthAgo = new Date(today);
-    monthAgo.setMonth(monthAgo.getMonth() - 1);
-
-    if (filters.dateFilter === 'today') {
-      matchesDate = saleDate >= today;
-    } else if (filters.dateFilter === 'yesterday') {
+    if (filters.dateFilter === 'today') matchesDate = saleDate >= today;
+    else if (filters.dateFilter === 'yesterday') {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
       matchesDate = saleDate >= yesterday && saleDate < today;
     } else if (filters.dateFilter === 'week') {
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
       matchesDate = saleDate >= weekAgo;
     } else if (filters.dateFilter === 'month') {
+      const monthAgo = new Date(today);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
       matchesDate = saleDate >= monthAgo;
     }
 
@@ -309,79 +222,114 @@ const Sales: React.FC = () => {
     return matchesSearch && matchesDate && matchesStatus && matchesPayment && matchesDelivery;
   });
 
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-        <p className="mt-4 text-gray-500">Cargando ventas...</p>
-      </div>
-    );
-  }
+  const totals = {
+    total: filteredSales.reduce((sum, sale) => sum + (sale.total || 0), 0),
+    count: filteredSales.length,
+    avg: filteredSales.length > 0 ? filteredSales.reduce((sum, sale) => sum + (sale.total || 0), 0) / filteredSales.length : 0
+  };
+
+  if (loading && sales.length === 0) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] animate-pulse">
+      <div className="h-12 w-12 rounded-full border-4 border-primary-100 border-t-primary-600 animate-spin"></div>
+      <p className="mt-4 text-slate-500 font-black font-outfit uppercase tracking-tighter text-sm">Auditoría de ventas en proceso...</p>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="sales-page-header flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <h1 className="sales-page-title text-2xl font-bold text-gray-900">Historial de Ventas</h1>
-
-        <div className="sales-page-actions flex gap-2">
+    <div className="max-w-7xl mx-auto space-y-8 p-4 pb-20 lg:p-6 lg:pb-8 animate-in fade-in duration-500">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 mb-1">
+             <div className="h-2 w-2 rounded-full bg-emerald-500" />
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Transaction Ledger</p>
+          </div>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight font-outfit uppercase">Cierre de Ventas</h1>
+          <p className="text-slate-500 font-medium">Historial completo para la toma de decisiones basada en datos reales.</p>
+        </div>
+        
+        <div className="flex gap-3 w-full md:w-auto">
           <button
-            onClick={() => handleViewReturns()}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            onClick={() => setShowReturnsListModal(true)}
+            className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-6 py-4 bg-white border border-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all active:scale-95"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Ver Devoluciones
+            <RefreshCcw className="h-4 w-4" />
+            Devoluciones
           </button>
-
           <button
             onClick={() => setShowExportModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-6 py-4 bg-primary-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary-200 hover:bg-primary-700 transition-all active:scale-95"
           >
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-            Exportar a Excel
+            <FileSpreadsheet className="h-4 w-4" />
+            Exportar
           </button>
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
+      {/* Enterprise Financial Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group border border-slate-800">
+           <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:scale-110 transition-transform">
+             <TrendingUp className="h-24 w-24" />
+           </div>
+           <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-4">Volumen Comercial</p>
+           <p className="text-4xl font-black font-outfit leading-none mb-2">${totals.total.toLocaleString()}</p>
+           <p className="text-xs font-bold text-emerald-400 flex items-center gap-2">
+             <DollarSign className="h-3 w-3" />
+             {totals.count} transacciones procesadas
+           </p>
         </div>
-      )}
 
-      <SalesFilters
-        searchQuery={filters.searchQuery}
-        onSearchChange={(value) => setFilters({ ...filters, searchQuery: value })}
-        dateFilter={filters.dateFilter}
-        onDateFilterChange={(value) => setFilters({ ...filters, dateFilter: value as any })}
-        statusFilter={filters.statusFilter}
-        onStatusFilterChange={(value) => setFilters({ ...filters, statusFilter: value as any })}
-        paymentFilter={filters.paymentFilter}
-        onPaymentFilterChange={(value) => setFilters({ ...filters, paymentFilter: value as any })}
-        deliveryFilter={filters.deliveryFilter}
-        onDeliveryFilterChange={(value) => setFilters({ ...filters, deliveryFilter: value as any })}
-        historyFilter={filters.historyFilter}
-        onHistoryFilterChange={(value) => setFilters({ ...filters, historyFilter: value as any })}
-      />
+        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+           <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 mb-6">
+             <ShoppingBag className="h-6 w-6" />
+           </div>
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Ticket Promedio</p>
+           <p className="text-3xl font-black text-slate-900 font-outfit">${Math.round(totals.avg).toLocaleString()}</p>
+           <p className="text-xs font-bold text-slate-400 mt-2">Valor medio por operación</p>
+        </div>
 
-      <SalesTable
-        sales={filteredSales}
-        onViewSale={handleViewSale}
-        onEditSale={handleEditSale}
-        onDeleteSale={handleDeleteSale}
-        onReturnSale={handleReturnSale}
-        onGeneratePDF={generateSaleReceipt}
-        historyFilter={filters.historyFilter}
-      />
+        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+           <div className="h-12 w-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 mb-6">
+             <CreditCard className="h-6 w-6" />
+           </div>
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Última Actividad</p>
+           <p className="text-3xl font-black text-slate-900 font-outfit uppercase">{filteredSales[0] ? new Date(filteredSales[0].creada_en).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</p>
+           <p className="text-xs font-bold text-slate-400 mt-2">Sincronización en tiempo real</p>
+        </div>
+      </div>
 
+      {/* Main Content Area */}
+      <div className="space-y-6">
+        <SalesFilters
+          searchQuery={filters.searchQuery}
+          onSearchChange={(value) => setFilters({ ...filters, searchQuery: value })}
+          dateFilter={filters.dateFilter}
+          onDateFilterChange={(value) => setFilters({ ...filters, dateFilter: value as any })}
+          statusFilter={filters.statusFilter}
+          onStatusFilterChange={(value) => setFilters({ ...filters, statusFilter: value as any })}
+          paymentFilter={filters.paymentFilter}
+          onPaymentFilterChange={(value) => setFilters({ ...filters, paymentFilter: value as any })}
+          deliveryFilter={filters.deliveryFilter}
+          onDeliveryFilterChange={(value) => setFilters({ ...filters, deliveryFilter: value as any })}
+          historyFilter={filters.historyFilter}
+          onHistoryFilterChange={(value) => setFilters({ ...filters, historyFilter: value as any })}
+        />
+
+        <div className="animate-in slide-in-from-bottom duration-500">
+          <SalesTable
+            sales={filteredSales}
+            onViewSale={(sale) => { setSelectedSale(sale); setShowDetailModal(true); }}
+            onEditSale={(sale) => { setSelectedSale(sale); setShowEditModal(true); }}
+            onDeleteSale={(sale) => { setSelectedSale(sale); setShowDeleteModal(true); }}
+            onReturnSale={(sale) => { setSelectedSale(sale); setShowReturnModal(true); }}
+            onGeneratePDF={generateSaleReceipt}
+            historyFilter={filters.historyFilter}
+          />
+        </div>
+      </div>
+
+      {/* Modals Suite */}
       {showDetailModal && selectedSale && (
         <SalePreviewModal
           sale={selectedSale}
@@ -409,7 +357,7 @@ const Sales: React.FC = () => {
           isOpen={showReturnModal}
           onClose={() => setShowReturnModal(false)}
           sale={selectedSale}
-          onSuccess={handleSaleUpdated}
+          onSuccess={fetchSales}
         />
       )}
 
@@ -418,7 +366,7 @@ const Sales: React.FC = () => {
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
           sale={selectedSale}
-          onSuccess={handleSaleUpdated}
+          onSuccess={fetchSales}
         />
       )}
 
@@ -427,7 +375,7 @@ const Sales: React.FC = () => {
           isOpen={showDeleteModal}
           onClose={() => setShowDeleteModal(false)}
           sale={selectedSale}
-          onSuccess={handleSaleUpdated}
+          onSuccess={fetchSales}
         />
       )}
     </div>

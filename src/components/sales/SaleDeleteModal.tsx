@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { AlertTriangle, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { AlertTriangle, ShieldAlert, AlertCircle, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Sale } from '../../types/sales';
@@ -12,15 +12,26 @@ interface SaleDeleteModalProps {
 }
 
 const SaleDeleteModal: React.FC<SaleDeleteModalProps> = ({ isOpen, onClose, sale, onSuccess }) => {
-  const { user } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState('');
 
+  useEffect(() => {
+    if (isOpen) {
+      setConfirmText('');
+      setError(null);
+      // Lock body scroll
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleDelete = async () => {
-    if (confirmText !== 'ELIMINAR') {
+    if (confirmText.toUpperCase() !== 'ELIMINAR') {
       setError('Por favor, escribe "ELIMINAR" para confirmar');
       return;
     }
@@ -29,7 +40,7 @@ const SaleDeleteModal: React.FC<SaleDeleteModalProps> = ({ isOpen, onClose, sale
     setError(null);
 
     try {
-      // Delete the sale - the trigger will handle related records
+      // The trigger handles related records, but we ensure clean deletion
       const { error: saleError } = await supabase
         .from('ventas')
         .delete()
@@ -41,87 +52,101 @@ const SaleDeleteModal: React.FC<SaleDeleteModalProps> = ({ isOpen, onClose, sale
       onClose();
     } catch (err: any) {
       console.error('Error deleting sale:', err);
-      setError(`Error al eliminar la venta: ${err.message}`);
+      setError(`Error al anular la venta: ${err.message}`);
     } finally {
       setIsDeleting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" aria-hidden="true" onClick={onClose}></div>
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">​</span>
-        
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <div className="bg-red-50 px-4 py-5 sm:p-6">
-            <div className="sm:flex sm:items-start">
-              <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                <Trash2 className="h-6 w-6 text-red-600" aria-hidden="true" />
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
+      <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={onClose} />
+      
+      <div className="relative w-full max-w-lg bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl animate-in zoom-in slide-in-from-bottom duration-400 overflow-hidden">
+        {/* Header de Riesgo */}
+        <div className="bg-rose-50 p-8 pb-10 border-b border-rose-100 flex flex-col items-center text-center">
+           <div className="h-20 w-20 rounded-[2rem] bg-rose-100 flex items-center justify-center text-rose-600 mb-6 shadow-inner ring-8 ring-rose-50">
+              <ShieldAlert className="h-10 w-10 animate-pulse" />
+           </div>
+           
+           <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-black text-rose-400 uppercase tracking-[0.3em]">Protocolo de Seguridad</span>
+           </div>
+           <h3 className="text-3xl font-black text-rose-900 font-outfit leading-none mb-3">Anular Operación</h3>
+           <p className="text-rose-700/60 font-medium text-sm max-w-[280px]">Estás a punto de eliminar de forma permanente la Venta <span className="font-black text-rose-900">#{sale.id.slice(0, 8)}</span></p>
+        </div>
+
+        {/* Cuerpo del Modal */}
+        <div className="p-8 space-y-6">
+           <div className="space-y-4">
+              <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                 <div className="h-8 w-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-rose-500 shrink-0 mt-1">
+                    <AlertTriangle className="h-4 w-4" />
+                 </div>
+                 <div className="space-y-2">
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-tight">Impacto en el Sistema</p>
+                    <ul className="space-y-1.5">
+                       <li className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
+                          <div className="h-1 w-1 rounded-full bg-rose-400" /> Se eliminarán todos los pagos asociados
+                       </li>
+                       <li className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
+                          <div className="h-1 w-1 rounded-full bg-rose-400" /> El registro contable será borrado permanentemente
+                       </li>
+                       <li className="flex items-center gap-2 text-[11px] font-bold text-slate-500 font-black text-rose-600">
+                          <div className="h-1 w-1 rounded-full bg-rose-600" /> Esta acción NO restaura el stock automáticamente
+                       </li>
+                    </ul>
+                 </div>
               </div>
-              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                <h3 className="text-lg font-bold text-red-800" id="modal-title">
-                  Eliminar Venta
-                </h3>
-                <div className="mt-2">
-                  <p className="text-sm text-red-700">
-                    ¿Estás seguro de que deseas eliminar esta venta? Esta acción no se puede deshacer.
-                  </p>
-                  <div className="mt-4 p-4 bg-red-100 rounded-md border border-red-300">
-                    <div className="flex items-start">
-                      <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 mr-2" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-red-800">Advertencia:</p>
-                        <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
-                          <li>Se eliminarán todos los detalles de la venta</li>
-                          <li>Se eliminarán todos los pagos parciales asociados</li>
-                          <li>Esta acción no puede deshacerse</li>
-                          <li>No se restaurará automáticamente el stock de productos</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-4">
-                  <label htmlFor="confirm-delete" className="block text-sm font-medium text-red-700">
-                    Escribe "ELIMINAR" para confirmar:
-                  </label>
-                  <input
-                    type="text"
-                    id="confirm-delete"
-                    className="mt-1 focus:ring-red-500 focus:border-red-500 block w-full shadow-sm sm:text-sm border-red-300 rounded-md"
-                    value={confirmText}
-                    onChange={(e) => setConfirmText(e.target.value)}
-                  />
-                </div>
-                
-                {error && (
-                  <div className="mt-3 text-sm text-red-600">
-                    {error}
-                  </div>
-                )}
+
+              <div className="space-y-3">
+                 <div className="flex items-center justify-between px-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Confirmación Requerida</label>
+                    <span className="text-[10px] font-bold text-rose-500 uppercase">Input Crítico</span>
+                 </div>
+                 <div className="relative group">
+                    <input
+                      type="text"
+                      placeholder='Escribe "ELIMINAR" para proceder'
+                      className={`w-full px-6 py-5 bg-slate-50 border-2 ${error ? 'border-rose-500' : 'border-slate-100'} rounded-[1.5rem] text-sm font-black uppercase tracking-widest text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-slate-100 transition-all text-center`}
+                      value={confirmText}
+                      onChange={(e) => {
+                        setConfirmText(e.target.value);
+                        if (error) setError(null);
+                      }}
+                    />
+                    {confirmText.toUpperCase() === 'ELIMINAR' && (
+                       <div className="absolute right-6 top-1/2 -translate-y-1/2 animate-in zoom-in">
+                          <AlertCircle className="h-5 w-5 text-emerald-500" />
+                       </div>
+                    )}
+                 </div>
               </div>
-            </div>
-          </div>
-          
-          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-            <button
-              type="button"
-              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-              onClick={handleDelete}
-              disabled={isDeleting || confirmText !== 'ELIMINAR'}
-            >
-              {isDeleting ? 'Eliminando...' : 'Eliminar Venta'}
-            </button>
-            <button
-              type="button"
-              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-              onClick={onClose}
-            >
-              Cancelar
-            </button>
-          </div>
+
+              {error && (
+                <div className="animate-in slide-in-from-top-2 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3">
+                   <Info className="h-4 w-4 text-rose-500 shrink-0" />
+                   <p className="text-xs font-black text-rose-700 uppercase">{error}</p>
+                </div>
+              )}
+           </div>
+
+           <div className="flex flex-col gap-3">
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting || confirmText.toUpperCase() !== 'ELIMINAR'}
+                className="w-full py-5 bg-rose-600 text-white rounded-[1.8rem] text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-rose-200 hover:bg-rose-700 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-40 disabled:scale-100 disabled:shadow-none"
+              >
+                {isDeleting ? 'Procesando Anulación...' : 'Confirmar Eliminación'}
+              </button>
+              <button
+                onClick={onClose}
+                disabled={isDeleting}
+                className="w-full py-5 bg-white border-2 border-slate-50 text-slate-400 rounded-[1.8rem] text-xs font-black uppercase tracking-[0.2em] hover:bg-slate-50 hover:text-slate-600 transition-all font-outfit"
+              >
+                Cancelar Operación
+              </button>
+           </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Minus, Plus, AlertTriangle, Save, X, CheckCircle } from 'lucide-react';
+import { Minus, Plus, AlertTriangle, X, CheckCircle, RefreshCw, ShoppingBag, Info, History, Package } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Sale } from '../../types/sales';
@@ -31,37 +31,31 @@ const SaleReturnModal: React.FC<SaleReturnModalProps> = ({ isOpen, onClose, sale
 
   useEffect(() => {
     if (isOpen && sale) {
-      // Initialize return items from sale details
-      const items = sale.detalle_ventas.map(detail => ({
+      const items = (sale.detalle_ventas || []).map(detail => ({
         id: crypto.randomUUID(),
         detailId: detail.id,
-        productId: detail.producto.id || '',
-        name: detail.producto.nombre,
+        productId: detail.producto?.id || '',
+        name: detail.producto?.nombre || 'Producto no identificado',
         originalQuantity: detail.cantidad,
         returnQuantity: returnType === 'total' ? detail.cantidad : 0,
         price: detail.precio_unitario
       }));
-      
       setReturnItems(items);
-      
-      if (returnType === 'total') {
-        setReturnTotal(sale.total);
-      } else {
-        setReturnTotal(0);
-      }
+      setReturnTotal(returnType === 'total' ? sale.total : 0);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
     }
+    return () => { document.body.style.overflow = ''; };
   }, [isOpen, sale, returnType]);
 
   useEffect(() => {
-    // Calculate return total based on selected items
     const total = returnItems.reduce((sum, item) => sum + (item.returnQuantity * item.price), 0);
     setReturnTotal(total);
   }, [returnItems]);
 
   const handleReturnTypeChange = (type: 'total' | 'parcial') => {
     setReturnType(type);
-    
-    // Update return quantities based on type
     setReturnItems(prevItems => 
       prevItems.map(item => ({
         ...item,
@@ -74,7 +68,6 @@ const SaleReturnModal: React.FC<SaleReturnModalProps> = ({ isOpen, onClose, sale
     setReturnItems(prevItems => 
       prevItems.map(item => {
         if (item.id === id) {
-          // Ensure quantity is within valid range
           const validQuantity = Math.max(0, Math.min(newQuantity, item.originalQuantity));
           return { ...item, returnQuantity: validQuantity };
         }
@@ -87,7 +80,6 @@ const SaleReturnModal: React.FC<SaleReturnModalProps> = ({ isOpen, onClose, sale
     e.preventDefault();
     setError(null);
     
-    // Validate form
     if (!returnReason.trim()) {
       setError('Por favor, ingresa un motivo para la devolución');
       return;
@@ -101,7 +93,6 @@ const SaleReturnModal: React.FC<SaleReturnModalProps> = ({ isOpen, onClose, sale
     setIsSubmitting(true);
 
     try {
-      // Create return record
       const { data: returnData, error: returnError } = await supabase
         .from('devoluciones')
         .insert({
@@ -118,31 +109,25 @@ const SaleReturnModal: React.FC<SaleReturnModalProps> = ({ isOpen, onClose, sale
 
       if (returnError) throw returnError;
 
-      // Create return details for each item with quantity > 0
-      if (returnItems.filter(item => item.returnQuantity > 0).length === 0) {
+      const activeReturnItems = returnItems.filter(item => item.returnQuantity > 0);
+      if (activeReturnItems.length === 0) {
         throw new Error('Debes seleccionar al menos un producto para devolver');
       }
       
-      const returnDetails = returnItems
-        .filter(item => item.returnQuantity > 0)
-        .map(item => ({
-          devolucion_id: returnData.id,
-          detalle_venta_id: item.detailId,
-          cantidad_devuelta: item.returnQuantity,
-          precio_unitario: item.price
-        }));
+      const returnDetails = activeReturnItems.map(item => ({
+        devolucion_id: returnData.id,
+        detalle_venta_id: item.detailId,
+        cantidad_devuelta: item.returnQuantity,
+        precio_unitario: item.price
+      }));
 
-      if (returnDetails.length > 0) {
-        const { error: detailsError } = await supabase
-          .from('detalle_devoluciones')
-          .insert(returnDetails);
+      const { error: detailsError } = await supabase
+        .from('detalle_devoluciones')
+        .insert(returnDetails);
 
-        if (detailsError) throw detailsError;
-      }
+      if (detailsError) throw detailsError;
       
-      setSuccessMessage('Solicitud de devolución enviada correctamente. Un administrador revisará y aprobará la devolución.');
-      
-      // Wait 2 seconds before closing to show success message
+      setSuccessMessage('Solicitud generada con éxito. Pendiente de aprobación administrativa.');
       setTimeout(() => {
         onSuccess();
         onClose();
@@ -150,7 +135,6 @@ const SaleReturnModal: React.FC<SaleReturnModalProps> = ({ isOpen, onClose, sale
     } catch (err: any) {
       console.error('Error creating return:', err);
       setError(`Error al procesar la devolución: ${err.message}`);
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -158,234 +142,187 @@ const SaleReturnModal: React.FC<SaleReturnModalProps> = ({ isOpen, onClose, sale
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity" onClick={onClose}>
-          <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+      
+      <div className="relative w-full max-w-2xl bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl animate-in zoom-in slide-in-from-bottom duration-400 flex flex-col max-h-[95vh] overflow-hidden">
+        {/* Header Premium */}
+        <div className="p-8 pb-6 border-b border-slate-50 flex items-start justify-between shrink-0">
+          <div className="flex items-center gap-6">
+             <div className="h-16 w-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-inner">
+                <RefreshCw className="h-8 w-8" />
+             </div>
+             <div>
+                <div className="flex items-center gap-2 mb-1">
+                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocolo de Retorno</span>
+                   <span className="px-3 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[8px] font-black uppercase tracking-widest">Venta #{sale.id.slice(0, 8)}</span>
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 font-outfit leading-none tracking-tight">Procesar Devolución</h3>
+                <p className="text-slate-500 font-bold text-[10px] mt-2 flex items-center gap-2 uppercase tracking-tighter">
+                   <Info className="h-3 w-3 opacity-40 text-indigo-600" /> Los cambios requieren aprobación administrativa
+                </p>
+             </div>
+          </div>
+          <button onClick={onClose} className="p-3 hover:bg-slate-50 rounded-full transition-all border border-transparent hover:border-slate-100">
+            <X className="h-6 w-6 text-slate-300" />
+          </button>
         </div>
-        
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-          <form onSubmit={handleSubmit}>
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div className="sm:flex sm:items-start">
-                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 sm:mx-0 sm:h-10 sm:w-10">
-                  <ArrowLeft className="h-6 w-6 text-yellow-600" aria-hidden="true" />
-                </div>
-                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    Procesar Devolución
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Venta #{sale.id.slice(0, 8)} - {new Date(sale.creada_en).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-              
-              {error && (
-                <div className="mt-4 bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <AlertTriangle className="h-5 w-5 text-red-400" />
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-red-700">{error}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {successMessage && (
-                <div className="mt-4 bg-green-50 border-l-4 border-green-400 p-4 rounded-md">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <CheckCircle className="h-5 w-5 text-green-400" />
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-green-700">{successMessage}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Tipo de devolución
-                  </label>
-                  <div className="mt-2 grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      className={`px-4 py-2 border rounded-md text-sm font-medium ${
-                        returnType === 'parcial' 
-                          ? 'bg-primary-50 border-primary-500 text-primary-700' 
-                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
-                      onClick={() => handleReturnTypeChange('parcial')}
-                    >
-                      Devolución Parcial
-                    </button>
-                    <button
-                      type="button"
-                      className={`px-4 py-2 border rounded-md text-sm font-medium ${
-                        returnType === 'total' 
-                          ? 'bg-primary-50 border-primary-500 text-primary-700' 
-                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
-                      onClick={() => handleReturnTypeChange('total')}
-                    >
-                      Devolución Total
-                    </button>
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="returnReason" className="block text-sm font-medium text-gray-700">
-                    Motivo de la devolución <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    id="returnReason"
-                    rows={3}
-                    className="mt-1 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                    value={returnReason}
-                    onChange={(e) => setReturnReason(e.target.value)}
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Productos a devolver
-                    {returnType === 'parcial' && <span className="text-red-500 ml-1">*</span>}
-                  </label>
-                  <div className="border border-gray-200 rounded-md overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Producto
-                          </th>
-                          <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Cantidad
-                          </th>
-                          <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Subtotal
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {returnItems.map((item) => (
-                          <tr key={item.id} className={returnType === 'total' ? 'bg-gray-50' : ''}>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                              {item.name}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              <div className="flex items-center justify-center">
-                                {returnType === 'parcial' ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="text-gray-500 hover:text-primary-600 border border-gray-300 rounded-full p-1 disabled:opacity-50"
-                                      onClick={() => handleQuantityChange(item.id, item.returnQuantity - 1)}
-                                      disabled={item.returnQuantity <= 0}
-                                    >
-                                      <Minus className="h-3 w-3" />
-                                    </button>
-                                    <span className="mx-2 text-sm text-gray-900 w-8 text-center">
-                                      {item.returnQuantity}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      className="text-gray-500 hover:text-primary-600 border border-gray-300 rounded-full p-1 disabled:opacity-50"
-                                      onClick={() => handleQuantityChange(item.id, item.returnQuantity + 1)}
-                                      disabled={item.returnQuantity >= item.originalQuantity}
-                                    >
-                                      <Plus className="h-3 w-3" />
-                                    </button>
-                                  </>
-                                ) : (
-                                  <span className="text-sm text-gray-900">
-                                    {item.originalQuantity}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-xs text-gray-500 text-center mt-1">
-                                de {item.originalQuantity}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium">
-                              ${(item.returnQuantity * item.price).toLocaleString()}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-gray-50">
-                        <tr>
-                          <td colSpan={2} className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
-                            Total a devolver:
-                          </td>
-                          <td className="px-4 py-3 text-sm font-bold text-right text-primary-600">
-                            ${returnTotal.toLocaleString()}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-                
-                <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-yellow-800">Información importante</h3>
-                      <div className="mt-2 text-sm text-yellow-700">
-                        <ul className="list-disc pl-5 space-y-1">
-                          <li>Las devoluciones deben ser aprobadas por un administrador</li>
-                          <li>El stock se actualizará automáticamente una vez aprobada</li>
-                          <li>Para ventas a crédito, el saldo pendiente se ajustará</li>
-                          <li>No se puede deshacer una devolución una vez aprobada</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+        {/* Scrollable Form Content */}
+        <div className="flex-1 overflow-y-auto p-8 pt-6 space-y-8 scrollbar-hide">
+          {error && (
+            <div className="bg-rose-50 border border-rose-100 p-5 rounded-[1.5rem] flex items-start gap-4 animate-in slide-in-from-top">
+              <AlertTriangle className="h-6 w-6 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest leading-none mb-1">Fallo en Proceso</p>
+                <p className="text-sm font-black text-rose-900 leading-tight">{error}</p>
               </div>
             </div>
-            
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-              <button
-                type="submit"
-                disabled={isSubmitting || returnTotal <= 0}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-                title={returnTotal <= 0 ? "Debes seleccionar al menos un producto para devolver" : ""}
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Procesando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Registrar Devolución
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                onClick={onClose}
-                disabled={isSubmitting}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancelar
-              </button>
+          )}
+
+          {successMessage && (
+            <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-[2rem] flex flex-col items-center text-center gap-4 animate-in zoom-in">
+              <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                <CheckCircle className="h-8 w-8" />
+              </div>
+              <div>
+                <p className="text-lg font-black text-emerald-900 font-outfit">¡Operación Registrada!</p>
+                <p className="text-sm font-bold text-emerald-600/70 mt-1">{successMessage}</p>
+              </div>
             </div>
-          </form>
+          )}
+
+          <div className="space-y-6">
+             {/* Tipo de Devolución */}
+             <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Tipo de Alcance</label>
+                <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-50 rounded-[1.5rem] border border-slate-100">
+                   <button
+                     type="button"
+                     className={`flex items-center justify-center gap-2 py-4 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest transition-all ${returnType === 'parcial' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-400 hover:text-slate-600'}`}
+                     onClick={() => handleReturnTypeChange('parcial')}
+                   >
+                     <ShoppingBag className="h-4 w-4" />
+                     Parcial
+                   </button>
+                   <button
+                     type="button"
+                     className={`flex items-center justify-center gap-2 py-4 rounded-[1.2rem] text-[11px] font-black uppercase tracking-widest transition-all ${returnType === 'total' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-400 hover:text-slate-600'}`}
+                     onClick={() => handleReturnTypeChange('total')}
+                   >
+                     <Package className="h-4 w-4" />
+                     Total
+                   </button>
+                </div>
+             </div>
+
+             {/* Motivo */}
+             <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Justificación de Retorno <span className="text-rose-500">*</span></label>
+                <div className="relative group">
+                   <History className="absolute left-6 top-5 h-5 w-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                   <textarea
+                     placeholder="Motivo detallado de la devolución..."
+                     rows={3}
+                     className="w-full pl-16 pr-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-200 transition-all resize-none"
+                     value={returnReason}
+                     onChange={(e) => setReturnReason(e.target.value)}
+                     required
+                   />
+                </div>
+             </div>
+
+             {/* Tabla de Productos Modernizada */}
+             <div className="space-y-3">
+                <div className="flex items-center justify-between px-2">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selección de Items</label>
+                   <span className="text-[10px] font-black text-slate-900">{returnItems.length} Referencias</span>
+                </div>
+                
+                <div className="bg-white border border-slate-100 rounded-[2rem] shadow-sm overflow-hidden">
+                   <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-50 grid grid-cols-4 gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                      <div className="col-span-2">Producto</div>
+                      <div className="text-center">Cant.</div>
+                      <div className="text-right">Subtotal</div>
+                   </div>
+                   <div className="divide-y divide-slate-50 max-h-60 overflow-y-auto scrollbar-hide">
+                      {returnItems.map((item) => (
+                        <div key={item.id} className={`px-6 py-4 transition-colors ${item.returnQuantity > 0 ? 'bg-indigo-50/30' : 'hover:bg-slate-50/30'}`}>
+                           <div className="grid grid-cols-4 gap-4 items-center">
+                              <div className="col-span-2 min-w-0">
+                                 <p className="text-xs font-black text-slate-800 truncate leading-none mb-1">{item.name}</p>
+                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Unit: ${item.price.toLocaleString()}</p>
+                              </div>
+                              <div className="flex flex-col items-center gap-1.5">
+                                 {returnType === 'parcial' ? (
+                                   <div className="flex items-center bg-white p-1 rounded-full shadow-sm border border-slate-200">
+                                      <button
+                                        type="button"
+                                        className="h-6 w-6 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-indigo-600 disabled:opacity-20 transition-all font-outfit"
+                                        onClick={() => handleQuantityChange(item.id, item.returnQuantity - 1)}
+                                        disabled={item.returnQuantity <= 0}
+                                      >
+                                        <Minus className="h-3 w-3" />
+                                      </button>
+                                      <span className="w-8 text-center text-xs font-black text-slate-900">
+                                        {item.returnQuantity}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="h-6 w-6 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-indigo-600 disabled:opacity-20 transition-all font-outfit"
+                                        onClick={() => handleQuantityChange(item.id, item.returnQuantity + 1)}
+                                        disabled={item.returnQuantity >= item.originalQuantity}
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                      </button>
+                                   </div>
+                                 ) : (
+                                   <span className="text-xs font-black text-slate-900 px-3 py-1 bg-white rounded-full shadow-sm border border-slate-100">{item.originalQuantity}</span>
+                                 )}
+                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">max: {item.originalQuantity}</span>
+                              </div>
+                              <div className="text-right">
+                                 <p className="text-xs font-black text-slate-900 font-outfit">${(item.returnQuantity * item.price).toLocaleString()}</p>
+                              </div>
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                   <div className="px-6 py-4 bg-indigo-600/5 flex justify-between items-center text-indigo-700">
+                      <span className="text-[10px] font-black uppercase tracking-widest">Impacto Financiero Estimado</span>
+                      <span className="text-lg font-black font-outfit">${returnTotal.toLocaleString()}</span>
+                   </div>
+                </div>
+             </div>
+
+             <div className="bg-indigo-50/50 p-6 rounded-[1.5rem] border border-indigo-100/50 flex items-start gap-4">
+                <AlertTriangle className="h-5 w-5 text-indigo-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                   <p className="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Información de Auditoría</p>
+                   <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-tight leading-relaxed">
+                      El stock y el saldo comercial se ajustarán solo al ser aprobada por Gerencia.
+                   </p>
+                </div>
+             </div>
+          </div>
+        </div>
+
+        {/* Global Footer Financials */}
+        <div className="p-8 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row-reverse gap-3 shrink-0">
+           <button
+             onClick={handleSubmit}
+             disabled={isSubmitting || returnTotal <= 0}
+             className="flex-1 py-5 bg-slate-900 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-300 hover:bg-slate-800 transition-all active:scale-[0.98] disabled:opacity-40"
+           >
+             {isSubmitting ? 'Registrando Devolución...' : 'Aplicar Solicitud'}
+           </button>
+           <button
+             onClick={onClose}
+             disabled={isSubmitting}
+             className="px-10 py-5 bg-white border border-slate-200 text-slate-400 rounded-[2rem] text-xs font-black uppercase tracking-widest hover:bg-slate-50 hover:text-slate-600 transition-all font-outfit"
+           >
+             Cancelar
+           </button>
         </div>
       </div>
     </div>
