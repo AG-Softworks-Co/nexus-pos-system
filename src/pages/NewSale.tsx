@@ -1,6 +1,7 @@
 // src/pages/NewSale.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, CreditCard, DollarSign, X, AlertCircle, Smartphone, CreditCard as CardIcon, Truck, MapPin, Phone, Mail, User, ShoppingCart, Minus, AlertTriangle, CheckCircle, ArrowLeft, Landmark, Percent, Lock } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Search, Plus, Trash2, CreditCard, DollarSign, X, AlertCircle, Truck, MapPin, Phone, User, ShoppingCart, Minus, AlertTriangle, CheckCircle, Landmark, Percent, ShoppingBag, ArrowRight, Save, Calculator, Lock, Smartphone, Zap, UserPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import DiscountModal from '../components/sales/DiscountModal';
@@ -41,61 +42,35 @@ const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, title, message
                type === 'warning' ? AlertTriangle : 
                AlertCircle;
 
-  const bgColor = type === 'success' ? 'bg-green-50' :
-                 type === 'warning' ? 'bg-yellow-50' :
-                 'bg-red-50';
+  const colors = {
+    success: 'from-emerald-500 to-teal-600',
+    warning: 'from-amber-400 to-orange-500',
+    error: 'from-rose-500 to-red-600'
+  };
 
-  const iconColor = type === 'success' ? 'text-green-400' :
-                   type === 'warning' ? 'text-yellow-400' :
-                   'text-red-400';
-
-  const textColor = type === 'success' ? 'text-green-800' :
-                   type === 'warning' ? 'text-yellow-800' :
-                   'text-red-800';
-
-  return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose} />
-        
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <div className={`${bgColor} px-4 py-5 sm:p-6`}>
-            <div className="sm:flex sm:items-start">
-              <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full ${bgColor} sm:mx-0 sm:h-10 sm:w-10`}>
-                <Icon className={`h-6 w-6 ${iconColor}`} />
-              </div>
-              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                <h3 className={`text-lg font-medium ${textColor}`}>
-                  {title}
-                </h3>
-                <div className="mt-2">
-                  <p className={`text-sm ${textColor}`}>
-                    {message}
-                  </p>
-                </div>
-              </div>
-            </div>
+  return createPortal(
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
+      
+      <div className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
+        <div className={`h-2 text-center items-center justify-center bg-gradient-to-r ${colors[type]}`} />
+        <div className="p-8 pt-10 text-center">
+          <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-[2rem] bg-slate-50 mb-6 drop-shadow-sm">
+            <Icon className={`h-10 w-10 ${type === 'success' ? 'text-emerald-500' : type === 'warning' ? 'text-amber-500' : 'text-rose-500'}`} />
           </div>
-          <div className="bg-white px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-            <button
-              type="button"
-              className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 ${
-                type === 'success' ? 'bg-green-600 hover:bg-green-700' :
-                type === 'warning' ? 'bg-yellow-600 hover:bg-yellow-700' :
-                'bg-red-600 hover:bg-red-700'
-              } text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                type === 'success' ? 'focus:ring-green-500' :
-                type === 'warning' ? 'focus:ring-yellow-500' :
-                'focus:ring-red-500'
-              } sm:ml-3 sm:w-auto sm:text-sm`}
-              onClick={onClose}
-            >
-              Entendido
-            </button>
-          </div>
+          <h3 className="text-2xl font-black text-slate-900 font-outfit uppercase tracking-tight mb-2">{title}</h3>
+          <p className="text-slate-500 text-sm font-medium leading-relaxed mb-8">{message}</p>
+          
+          <button
+            onClick={onClose}
+            className={`w-full py-4 rounded-2xl text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-slate-200 transition-all active:scale-95 bg-gradient-to-r ${colors[type]}`}
+          >
+            Entendido
+          </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -106,7 +81,7 @@ const NewSale: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'bancolombia' | 'nequi' | 'daviplata' | 'tarjeta' | 'credito'>('efectivo');
+  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'bancolombia' | 'nequi' | 'daviplata' | 'tarjeta' | 'credito' | null>(null);
   const [notes, setNotes] = useState('');
   const [products, setProducts] = useState<ProductDB[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -155,6 +130,9 @@ const NewSale: React.FC = () => {
     applyTo: 'total' | string;
     discountAmount: number;
   } | null>(null);
+  
+  // Multi-step payment state
+  const [paymentStep, setPaymentStep] = useState(1);
 
   useEffect(() => {
     if (user?.negocioId) {
@@ -398,9 +376,28 @@ const NewSale: React.FC = () => {
     setShowMobileCart(false);
   };
 
+  const clearTransactionalState = () => {
+    setSelectedClient(null);
+    setClientName('');
+    setClientPhone('');
+    setClientEmail('');
+    setClientAddress('');
+    setClientSearchQuery('');
+    setShowClientForm(false);
+    setIsDelivery(false);
+    setDeliveryAddress('');
+    setAddressReferences('');
+    setSelectedAddress(null);
+    setDeliveryCost('');
+    setPaymentMethod(null);
+    setNotes('');
+    setPaymentStep(1);
+  };
+
   const handleClosePaymentModal = () => {
     setShowPaymentModal(false);
     setShowDiscountModal(false);
+    clearTransactionalState();
     if (openedPaymentFromMobileCart) {
       setShowMobileCart(true);
     }
@@ -469,9 +466,10 @@ const NewSale: React.FC = () => {
       setAppliedDiscount(null);
     } else {
       // Remove product-specific discount
+      const discountToApply = appliedDiscount; // Capturar para el map
       setCart(prevCart => 
         prevCart.map(item => {
-          if (item.productId === appliedDiscount?.applyTo) {
+          if (item.productId === discountToApply?.applyTo) {
             return {
               ...item,
               price: item.originalPrice!,
@@ -504,14 +502,35 @@ const NewSale: React.FC = () => {
       return;
     }
     
-    if (paymentMethod === 'credito' && !selectedClient) {
-      showAlertModal('Cliente Requerido', 'Para ventas a crédito, debe seleccionar un cliente.', 'warning');
+    if (!paymentMethod) {
+      showAlertModal('Método de Pago', 'Por favor, selecciona un método de pago.', 'warning');
       return;
     }
     
-    if (isDelivery && (!clientName.trim() || !deliveryAddress.trim() || numericDeliveryCost < 0)) {
-        showAlertModal('Campos incompletos', 'Para domicilio, por favor complete nombre del cliente, dirección y costo de envío (no puede ser negativo).', 'warning');
+    if (paymentMethod === 'credito') {
+      if (!selectedClient && clientName.trim().length < 3) {
+        showAlertModal('Cliente Requerido', 'Para ventas a crédito, debes ingresar un nombre de cliente válido (mínimo 3 caracteres).', 'warning');
         return;
+      }
+      if (!selectedClient && clientPhone.trim().length < 7) {
+        showAlertModal('Contacto Requerido', 'Para cobrar después, necesitamos un número de contacto válido (mínimo 7 dígitos).', 'warning');
+        return;
+      }
+    }
+    
+    if (isDelivery) {
+      if (clientName.trim().length < 3) {
+        showAlertModal('Campos incompletos', 'Para domicilio, se requiere el nombre del destinatario (mínimo 3 caracteres).', 'warning');
+        return;
+      }
+      if (!deliveryAddress.trim() || deliveryAddress.trim().length < 5) {
+        showAlertModal('Dirección Requerida', 'Por favor ingresa una dirección de entrega válida.', 'warning');
+        return;
+      }
+      if (numericDeliveryCost < 0) {
+        showAlertModal('Error de Costo', 'El costo de envío no puede ser negativo.', 'warning');
+        return;
+      }
     }
     
     setIsSubmitting(true);
@@ -602,7 +621,6 @@ const NewSale: React.FC = () => {
         saleData.saldo_pendiente = finalTotal;
       }
       
-      console.log('Sending sale data:', saleData);
       
       const { data: saleResult, error: saleError } = await supabase
         .from('ventas')
@@ -707,7 +725,7 @@ const NewSale: React.FC = () => {
 
   const paymentOptions = [
     { value: 'efectivo' as const, label: 'Efectivo', icon: <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> },
-    { value: 'tarjeta' as const, label: 'Tarjeta', icon: <CardIcon className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> },
+    { value: 'tarjeta' as const, label: 'Tarjeta', icon: <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> },
     { value: 'credito' as const, label: 'Crédito', icon: <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> },
     { value: 'bancolombia' as const, label: 'Bancolombia', icon: <Landmark className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> },
     { value: 'nequi' as const, label: 'Nequi', icon: <Smartphone className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> },
@@ -722,35 +740,40 @@ const NewSale: React.FC = () => {
   };
 
   return (
-    <div className={`h-[calc(100vh-4rem)] flex flex-col md:flex-row md:space-x-6 relative md:pb-0 ${cart.length > 0 && !showMobileCart && !showPaymentModal ? 'pb-24' : 'pb-0'}`}>
-      {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-white border-b sticky top-0 z-30">
-        <h1 className="text-xl font-semibold">Nueva Venta</h1>
+    <div className={`h-[calc(100vh-4rem)] flex flex-col md:flex-row relative md:pb-0 ${cart.length > 0 && !showMobileCart && !showPaymentModal ? 'pb-24' : 'pb-0'} bg-slate-50/50`}>
+      {/* ═══ MOBILE HEADER ═══ */}
+      <div className="md:hidden flex items-center justify-between p-6 bg-white border-b border-slate-100 z-30">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-200">
+            <ShoppingBag className="h-5 w-5 text-white" />
+          </div>
+          <h1 className="text-xl font-black text-slate-900 font-outfit uppercase tracking-tight">Caja Nexus</h1>
+        </div>
         <button
           onClick={() => setShowMobileCart(true)}
-          className="relative p-2 text-gray-600 hover:text-gray-900"
+          className="relative p-3 bg-slate-50 text-slate-400 hover:text-primary-600 rounded-xl transition-all active:scale-95"
         >
           <ShoppingCart className="h-6 w-6" />
           {cart.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-primary-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 bg-primary-600 text-white text-[10px] font-black rounded-full h-5 w-5 flex items-center justify-center shadow-md animate-in zoom-in-50">
               {totalItemsInCart()}
             </span>
           )}
         </button>
       </div>
 
-      {/* Products Section */}
+      {/* ═══ PRODUCTS PORTAL ═══ */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="bg-white p-4 shadow-sm border-b sticky top-[73px] md:top-0 z-20">
+        <div className="bg-white/80 backdrop-blur-md p-6 border-b border-slate-100 sticky top-0 md:top-0 z-20">
           <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+            <div className="relative flex-1 group">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-primary-600">
+                <Search className="h-5 w-5 text-slate-400" />
               </div>
               <input
                 type="text"
-                className="pl-10 pr-4 py-2 focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                placeholder="Buscar productos..."
+                className="pl-12 pr-6 py-4 bg-slate-50 border-transparent focus:bg-white focus:ring-primary-500 focus:border-primary-500 block w-full text-sm font-medium text-slate-900 border-none rounded-2xl placeholder:text-slate-400 transition-all shadow-inner group-hover:bg-slate-100"
+                placeholder="Escribe para buscar productos..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -758,14 +781,14 @@ const NewSale: React.FC = () => {
             
             <div className="flex gap-2">
               <select
-                className="focus:ring-primary-500 focus:border-primary-500 h-full py-2 pl-3 pr-7 border-gray-300 bg-white text-gray-700 sm:text-sm rounded-md flex-1 md:flex-none"
+                className="bg-slate-50 border-none focus:ring-2 focus:ring-primary-500 h-full py-4 px-6 text-slate-600 font-bold text-[10px] uppercase tracking-widest rounded-2xl flex-1 md:flex-none cursor-pointer hover:bg-slate-100 transition-all"
                 value={selectedCategory || ''}
                 onChange={(e) => setSelectedCategory(e.target.value || null)}
               >
                 <option value="">Todas las categorías</option>
                 {categories.map(category => (
                   <option key={category.id} value={category.id}>
-                    {category.nombre}
+                    {category.nombre.toUpperCase()}
                   </option>
                 ))}
               </select>
@@ -773,56 +796,75 @@ const NewSale: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-gray-50 custom-scrollbar px-4 pb-4 pt-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="flex-1 overflow-y-auto px-6 py-8 custom-scrollbar">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
             {loading && products.length === 0 && (
-              <div className="flex items-center justify-center py-10 col-span-full">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                  <p className="ml-3 text-gray-500">Cargando productos...</p>
+              <div className="flex flex-col items-center justify-center py-20 col-span-full">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4" />
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sincronizando Inventario</p>
               </div>
             )}
             {!loading && filteredProducts.length === 0 && (
-              <div className="text-center py-10 col-span-full">
-                <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No se encontraron productos.</p>
-                <p className="text-sm text-gray-400">Intenta con otra búsqueda o categoría.</p>
+              <div className="flex flex-col items-center justify-center py-24 col-span-full bg-slate-50/50 rounded-[3rem] border border-dashed border-slate-200">
+                <Search className="h-16 w-16 text-slate-200 mb-6" />
+                <h3 className="text-xl font-black text-slate-900 font-outfit uppercase">Sin resultados</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Prueba con otros términos de auditoría</p>
               </div>
             )}
             {filteredProducts.map((product) => (
               <button
                 key={product.id}
                 onClick={() => addToCart(product)}
-                className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden transition-transform hover:scale-105 
+                className={`bg-white rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] relative group transition-all duration-300 active:scale-95 text-left
                   ${ product.requiere_stock && (product.stock_actual == null || product.stock_actual <= 0) 
-                      ? 'opacity-60 cursor-not-allowed' 
-                      : 'hover:shadow-md'
+                      ? 'opacity-40 grayscale cursor-not-allowed' 
+                      : 'hover:shadow-[0_20px_40px_rgb(0,0,0,0.04)] hover:-translate-y-1'
                   }`}
                 disabled={product.requiere_stock && (product.stock_actual == null || product.stock_actual <= 0)}
               >
-                <div className="aspect-w-1 aspect-h-1 bg-gray-200 relative">
+                <div className="aspect-[4/3] bg-slate-50 relative rounded-t-[2rem] overflow-hidden">
                   <img 
                     src={product.url_imagen || 'https://via.placeholder.com/300x200?text=No+Imagen'} 
                     alt={product.nombre}
-                    className="object-cover w-full h-full" 
+                    className="object-cover w-full h-full transform group-hover:scale-110 transition-transform duration-700" 
                     loading="lazy"
                   />
-                  {product.requiere_stock && product.stock_actual !== null && product.stock_actual !== undefined && product.stock_minimo !== null && product.stock_minimo !== undefined && product.stock_actual <= product.stock_minimo && (
-                    <div className="absolute top-2 right-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold shadow-md
-                        ${ product.stock_actual <= 0 ? 'bg-red-500 text-white' : 'bg-yellow-400 text-yellow-900' }`}>
-                        {product.stock_actual <= 0 ? 'Agotado' : `${product.stock_actual} und.`}
+                  
+                  {/* Stock Badges */}
+                  {product.requiere_stock && product.stock_actual !== null && (
+                    <div className="absolute top-4 right-4 flex flex-col gap-1 items-end">
+                      <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg backdrop-blur-md
+                        ${ product.stock_actual <= 0 
+                            ? 'bg-rose-500 text-white' 
+                            : product.stock_minimo && product.stock_actual <= product.stock_minimo
+                              ? 'bg-amber-400 text-amber-900'
+                              : 'bg-emerald-500/90 text-white' }`}>
+                        {product.stock_actual <= 0 ? 'SIN STOCK' : `${product.stock_actual} UND.`}
                       </span>
                     </div>
                   )}
+
+                  {/* Add Overlay */}
+                  <div className="absolute inset-0 bg-primary-600/0 group-hover:bg-primary-600/10 transition-all duration-300 flex items-center justify-center">
+                    <div className="h-12 w-12 bg-white rounded-2xl shadow-xl flex items-center justify-center text-primary-600 scale-0 group-hover:scale-100 transition-all duration-300">
+                      <Plus className="h-6 w-6" />
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="p-3 text-left">
-                  <h3 className="text-sm font-medium text-gray-900">
+                <div className="p-6">
+                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest block mb-1">
+                    {categories.find(c => c.id === product.categoria_id)?.nombre || 'General'}
+                  </span>
+                  <h3 className="text-[13px] font-black text-slate-900 font-outfit uppercase leading-tight line-clamp-3 min-h-[3rem] group-hover:text-primary-600 transition-colors">
                     {product.nombre}
                   </h3>
-                  <p className="mt-1 text-sm font-bold text-primary-600">
-                    ${product.precio_venta.toLocaleString()}
-                  </p>
+                  <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
+                    <p className="text-xl font-black text-slate-900 font-outfit">
+                      ${product.precio_venta.toLocaleString()}
+                    </p>
+                    <ArrowRight className="h-5 w-5 text-slate-200 group-hover:text-primary-600 transition-all opacity-0 group-hover:opacity-100 group-hover:translate-x-1" />
+                  </div>
                 </div>
               </button>
             ))}
@@ -830,16 +872,23 @@ const NewSale: React.FC = () => {
         </div>
       </div>
       
-      {/* Cart Section (Desktop & Mobile Full Screen) */}
-      <div className={`bg-white flex flex-col h-full shadow-lg border-l border-gray-200 
-                      md:w-1/3 lg:w-1/4 
-                      ${showMobileCart ? 'fixed inset-0 z-50' : 'hidden'} md:flex`}>
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
-          <h2 className="text-lg font-medium text-gray-900">Orden actual</h2>
+      {/* ═══ CART PANEL (DESKTOP & MOBILE FULL SCREEN) ═══ */}
+      <div className={`bg-white flex flex-col h-full shadow-[0_0_50px_rgba(0,0,0,0.05)] border-l border-slate-100 
+                      md:w-1/3 lg:w-[380px] xl:w-[420px] transition-all duration-500
+                      ${showMobileCart ? 'fixed inset-0 z-[60]' : 'hidden'} md:flex relative`}>
+        
+        {/* Header Orden */}
+        <div className="p-8 border-b border-slate-50 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-10">
+          <div>
+            <h2 className="text-2xl font-black text-slate-900 font-outfit uppercase">Tu Pedido</h2>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+              Ref: {new Date().toLocaleDateString()} - {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
           {showMobileCart && (
             <button
               onClick={() => setShowMobileCart(false)}
-              className="md:hidden text-gray-500 hover:text-gray-700 p-1"
+              className="md:hidden bg-slate-50 text-slate-400 hover:text-rose-500 p-3 rounded-2xl transition-all active:scale-95"
             >
               <X className="h-6 w-6" />
             </button>
@@ -847,75 +896,67 @@ const NewSale: React.FC = () => {
         </div>
         
         {cart.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-            <div className="bg-gray-100 p-4 rounded-full mb-4">
-              <ShoppingCart className="h-8 w-8 text-gray-400" />
+          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-slate-50/10">
+            <div className="h-32 w-32 bg-slate-50 rounded-[3rem] p-8 mb-8 flex items-center justify-center drop-shadow-sm">
+              <ShoppingBag className="h-full w-full text-slate-100" />
             </div>
-            <p className="text-gray-500 mb-2">Carrito vacío</p>
-            <p className="text-sm text-gray-400">Agrega productos haciendo clic en ellos</p>
+            <h3 className="text-lg font-black text-slate-900 font-outfit uppercase">Carrito Vacío</h3>
+            <p className="text-sm text-slate-400 font-medium mt-2 leading-relaxed">Agrega productos del inventario para iniciar una nueva transacción.</p>
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <div className="divide-y divide-gray-100">
+            <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
+              <div className="space-y-4">
                 {cart.map(item => (
-                  <div key={item.id} className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 mr-2">
-                        <div className="flex items-center">
-                          <h3 className="text-sm font-medium text-gray-900">{item.name}</h3>
-                          {item.requiere_stock && item.stock_actual !== undefined && item.stock_actual !== null && item.stock_minimo !== undefined && item.stock_minimo !== null &&
-                           item.stock_actual <= item.stock_minimo && item.stock_actual > 0 && (
-                            <div className="ml-2 flex items-center text-yellow-600" 
-                                 title={`Stock bajo: ${item.stock_actual} unidades restantes`}>
-                              <AlertTriangle className="h-4 w-4" />
-                            </div>
+                  <div key={item.id} className="bg-white rounded-3xl p-5 border border-slate-50 shadow-sm hover:shadow-md transition-all group">
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-sm font-black text-slate-900 uppercase font-outfit line-clamp-1">{item.name}</h3>
+                          {item.requiere_stock && item.stock_actual != null && item.stock_minimo != null &&
+                           item.stock_actual <= item.stock_minimo && (
+                            <AlertTriangle className={`h-4 w-4 ${item.stock_actual <= 0 ? 'text-rose-500' : 'text-amber-500'}`} />
                           )}
-                           {item.requiere_stock && item.stock_actual !== undefined && item.stock_actual !== null && item.stock_actual <= 0 && (
-                            <div className="ml-2 flex items-center text-red-600" 
-                                 title={`Producto agotado`}>
-                              <AlertCircle className="h-4 w-4" />
-                            </div>
-                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <p className="text-xs text-gray-500">${item.price.toLocaleString()} c/u</p>
+                          <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100 uppercase">
+                            ${item.price.toLocaleString()} UND
+                          </span>
                           {item.discountApplied && item.discountApplied > 0 && (
-                            <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                              Descuento: ${item.discountApplied.toLocaleString()}
+                            <span className="text-[9px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-lg uppercase">
+                              -{item.discountApplied.toLocaleString()} OFF
                             </span>
                           )}
                         </div>
                       </div>
                       <button 
-                        className="text-red-400 hover:text-red-600 p-1 -mr-1 -mt-1"
+                        className="h-10 w-10 flex items-center justify-center text-rose-500 bg-rose-50 hover:bg-rose-100 hover:scale-110 active:scale-95 rounded-xl transition-all shadow-sm border border-rose-100"
                         onClick={() => removeFromCart(item.id)}
-                        aria-label="Eliminar item"
+                        title="Eliminar producto"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-5 w-5" />
                       </button>
                     </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center space-x-2">
+
+                    <div className="flex items-center justify-between mt-6">
+                      <div className="flex items-center bg-slate-50 p-1 rounded-2xl gap-1">
                         <button 
-                          className="text-gray-500 hover:text-primary-600 border border-gray-300 rounded-full p-1.5 disabled:opacity-50"
+                          className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-primary-600 hover:bg-white rounded-xl transition-all disabled:opacity-30 shadow-sm"
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
                           disabled={item.quantity <= 1}
-                          aria-label="Reducir cantidad"
                         >
-                          <Minus className="h-3 w-3" />
+                          <Minus className="h-4 w-4" />
                         </button>
-                        <span className="text-gray-900 w-8 text-center text-sm tabular-nums">{item.quantity}</span>
+                        <span className="text-sm font-black text-slate-900 w-10 text-center font-outfit tabular-nums">{item.quantity}</span>
                         <button 
-                          className="text-gray-500 hover:text-primary-600 border border-gray-300 rounded-full p-1.5 disabled:opacity-50"
+                          className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-primary-600 hover:bg-white rounded-xl transition-all disabled:opacity-30 shadow-sm"
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          disabled={!!(item.requiere_stock && item.stock_actual !== undefined && item.stock_actual !== null && item.quantity >= item.stock_actual)}
-                          aria-label="Aumentar cantidad"
+                          disabled={!!(item.requiere_stock && item.stock_actual != null && item.quantity >= item.stock_actual)}
                         >
-                          <Plus className="h-3 w-3" />
+                          <Plus className="h-4 w-4" />
                         </button>
                       </div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-lg font-black text-slate-900 font-outfit leading-none">
                         ${(item.price * item.quantity).toLocaleString()}
                       </p>
                     </div>
@@ -923,70 +964,72 @@ const NewSale: React.FC = () => {
                 ))}
               </div>
             </div>
-            <div className="p-4 border-t border-gray-200 sticky bottom-0 bg-white z-10">
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Subtotal</span>
-                  <span>${calculateSubtotal().toLocaleString()}</span>
+
+            <div className="p-8 bg-slate-900 text-white mt-auto">
+              <div className="space-y-4 mb-8">
+                <div className="flex justify-between text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                  <span>Subtotal Fiscal</span>
+                  <span className="text-white">${calculateSubtotal().toLocaleString()}</span>
                 </div>
                 {isDelivery && (Number(deliveryCost) || 0) > 0 && (
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>Domicilio</span>
-                    <span>${(Number(deliveryCost) || 0).toLocaleString()}</span>
+                  <div className="flex justify-between text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                    <span>Logística Domicilio</span>
+                    <span className="text-white">${(Number(deliveryCost) || 0).toLocaleString()}</span>
                   </div>
                 )}
                 {appliedDiscount && (
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>Descuento ({appliedDiscount.type === 'percentage' ? `${appliedDiscount.value}%` : 'Monto fijo'})</span>
+                  <div className="flex justify-between text-[11px] font-black text-emerald-400 uppercase tracking-widest">
+                    <span>Descuento Aplicado</span>
                     <span>-${appliedDiscount.discountAmount.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-base font-medium text-gray-900">
-                  <span>Total</span>
-                  <span>${calculateTotal().toLocaleString()}</span>
-                </div>
-                
-                {/* Discount section for admins/owners */}
-                {user?.rol && ['propietario', 'administrador'].includes(user.rol) && (
-                  <div className="pt-3 border-t border-gray-200">
-                    {appliedDiscount ? (
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-green-600 font-medium">
-                            Descuento aplicado ({appliedDiscount.type === 'percentage' ? `${appliedDiscount.value}%` : `$${appliedDiscount.value.toLocaleString()}`})
-                          </span>
-                          <button
-                            onClick={handleRemoveDiscount}
-                            className="text-red-500 hover:text-red-700 text-xs"
-                          >
-                            Quitar
-                          </button>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Razón: {appliedDiscount.reason}
-                        </div>
-                        <div className="text-xs text-green-600">
-                          Ahorro: ${appliedDiscount.discountAmount.toLocaleString()}
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setShowDiscountModal(true)}
-                        className="w-full flex items-center justify-center py-2 px-3 border border-yellow-300 rounded-md shadow-sm text-sm font-medium text-yellow-700 bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
-                      >
-                        <Percent className="h-4 w-4 mr-2" />
-                        Aplicar Descuento
-                      </button>
-                    )}
+                <div className="h-px bg-white/10 my-4" />
+                <div className="flex justify-between items-end">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Factura</span>
+                    <span className="text-4xl font-black font-outfit tracking-tighter block mt-1">
+                      ${calculateTotal().toLocaleString()}
+                    </span>
                   </div>
+                  <div className="h-12 w-12 bg-white/5 rounded-[1.2rem] flex items-center justify-center text-white/40">
+                    <Calculator className="h-6 w-6" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {/* Discount Trigger for Admins */}
+                {user?.rol && ['propietario', 'administrador'].includes(user.rol) && (
+                  <button
+                    onClick={appliedDiscount ? handleRemoveDiscount : () => setShowDiscountModal(true)}
+                    className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 text-[10px] font-black uppercase tracking-widest
+                      ${appliedDiscount 
+                        ? 'bg-rose-500/10 border border-rose-500/20 text-rose-500' 
+                        : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10'}`}
+                  >
+                    {appliedDiscount ? (
+                      <>
+                        <X className="h-4 w-4" />
+                        Eliminar Descuento
+                      </>
+                    ) : (
+                      <>
+                        <Percent className="h-4 w-4" />
+                        Aplicar Descuento
+                      </>
+                    )}
+                  </button>
                 )}
-                
+
                 <button
-                  className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+                  className="w-full py-6 rounded-[2rem] bg-gradient-to-r from-primary-500 to-indigo-600 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-primary-900/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:grayscale disabled:pointer-events-none"
                   onClick={handleProceedToPayment}
                   disabled={cart.length === 0}
                 >
-                  Proceder al Pago
+                  <div className="flex items-center justify-center gap-3">
+                    COMPLETAR TRANSACCIÓN
+                    <ArrowRight className="h-5 w-5" />
+                  </div>
                 </button>
               </div>
             </div>
@@ -1012,102 +1055,392 @@ const NewSale: React.FC = () => {
         </div>
       )}
 
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-[60] bg-white sm:bg-gray-500 sm:bg-opacity-75 sm:flex sm:items-center sm:justify-center sm:p-4">
-          <div className="w-full h-full flex flex-col bg-white text-left overflow-hidden transition-all sm:max-w-2xl sm:my-8 sm:rounded-lg sm:shadow-xl sm:h-auto">
-            <div className="flex items-center p-4 border-b">
-              <button type="button" className="text-gray-600 hover:text-gray-900 sm:hidden w-8 h-8 flex items-center justify-center -ml-2" onClick={handleClosePaymentModal} aria-label="Volver"><ArrowLeft className="w-5 h-5" /></button>
-              <h3 className="text-lg font-semibold text-gray-900 text-center flex-1 sm:text-left sm:flex-none">Completar venta</h3>
-              <button type="button" className="text-gray-400 hover:text-gray-500 focus:outline-none hidden sm:block w-8 h-8 flex items-center justify-center -mr-2" onClick={handleClosePaymentModal} aria-label="Cerrar modal"><X className="w-6 h-6" /></button>
-              <div className="w-8 sm:hidden"></div>
+      {/* ═══ MODERN MULTI-STEP PAYMENT MODAL ═══ */}
+      {showPaymentModal && createPortal(
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-0 sm:p-6 overflow-hidden">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={handleClosePaymentModal} />
+          
+          <div className="relative w-full h-full sm:h-fit sm:max-h-[85vh] sm:max-w-2xl bg-white sm:rounded-[2.5rem] shadow-2xl animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-500 overflow-hidden flex flex-col mx-auto my-auto">
+            
+            {/* Modal Header */}
+            <div className="p-6 md:p-8 flex items-center justify-between border-b border-slate-50 bg-white sticky top-0 z-10">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 bg-primary-50 rounded-2xl flex items-center justify-center">
+                  <CreditCard className="h-6 w-6 text-primary-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 font-outfit uppercase tracking-tight">Finalizar Venta</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`h-1.5 w-6 rounded-full transition-all duration-300 ${paymentStep >= 1 ? 'bg-primary-600' : 'bg-slate-100'}`} />
+                    <span className={`h-1.5 w-6 rounded-full transition-all duration-300 ${paymentStep >= 2 ? 'bg-primary-600' : 'bg-slate-100'}`} />
+                    <span className={`h-1.5 w-6 rounded-full transition-all duration-300 ${paymentStep >= 3 ? 'bg-primary-600' : 'bg-slate-100'}`} />
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={handleClosePaymentModal}
+                className="h-12 w-12 bg-slate-50 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all active:scale-95 flex items-center justify-center"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar sm:p-6 sm:max-h-[calc(100vh-220px)] md:max-h-[65vh]">
-              <div className="flex items-center justify-between bg-slate-100 p-3 sm:p-4 rounded-lg">
-                <div className="flex items-center"><Truck className="h-5 w-5 text-gray-500 mr-3" /><span className="text-sm font-medium text-gray-900">¿Es un domicilio?</span></div>
-                <label className="flex items-center cursor-pointer"><div className="relative"><input type="checkbox" className="sr-only" checked={isDelivery} onChange={(e) => setIsDelivery(e.target.checked)} /><div className={`block w-10 h-6 rounded-full ${isDelivery ? 'bg-primary-600' : 'bg-gray-300'}`}></div><div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition ${isDelivery ? 'transform translate-x-4' : ''}`}></div></div></label>
-              </div>
 
-              <div className="flex items-center justify-between bg-slate-100 p-3 sm:p-4 rounded-lg">
-                <div className="flex items-center"><User className="h-5 w-5 text-gray-500 mr-3" /><span className="text-sm font-medium text-gray-900">¿Registrar cliente?</span></div>
-                <label className="flex items-center cursor-pointer"><div className="relative"><input type="checkbox" className="sr-only" checked={showClientForm} onChange={(e) => setShowClientForm(e.target.checked)} /><div className={`block w-10 h-6 rounded-full ${showClientForm ? 'bg-primary-600' : 'bg-gray-300'}`}></div><div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition ${showClientForm ? 'transform translate-x-4' : ''}`}></div></div></label>
-              </div>
+            <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8 custom-scrollbar bg-slate-50/20">
+              
+              {/* STEP 1: IDENTIFICACIÓN & LOGÍSTICA BASE */}
+              {paymentStep === 1 && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button 
+                      onClick={() => setIsDelivery(!isDelivery)}
+                      className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col gap-4 text-left group
+                        ${isDelivery ? 'bg-primary-50/50 border-primary-500 shadow-lg shadow-primary-200/50' : 'bg-white border-slate-100 hover:border-slate-200'}`}
+                    >
+                      <div className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all 
+                        ${isDelivery ? 'bg-primary-600 text-white animate-bounce' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100'}`}>
+                        <Truck className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-widest block mb-1">Tipo de Entrega</span>
+                        <h4 className="text-lg font-black text-slate-900 font-outfit uppercase">¿Es Domicilio?</h4>
+                        <p className="text-xs text-slate-400 font-medium mt-1 uppercase tracking-tighter">Habilitar parámetros de envío</p>
+                      </div>
+                    </button>
 
-              {(isDelivery || paymentMethod === 'credito' || showClientForm) && (
-                <div className="bg-slate-100 p-4 rounded-lg space-y-3">
-                  <h4 className="text-md font-semibold text-gray-800 mb-1">Información del Cliente</h4>
-                  <div ref={clientSearchRef} className="relative">
-                    <input type="text" placeholder="Buscar o crear cliente..." className="w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" value={clientSearchQuery} onChange={(e) => { setClientSearchQuery(e.target.value); setShowClientSearch(true); if (selectedClient && e.target.value !== selectedClient.nombre_completo) { setSelectedClient(null); setClientName(e.target.value); } else if (!selectedClient) { setClientName(e.target.value); } }} onFocus={() => setShowClientSearch(true)} />
-                    {showClientSearch && filteredClients.length > 0 && clientSearchQuery && (
-                      <div className="absolute z-20 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto custom-scrollbar"><ul>{filteredClients.map(client => (<li key={client.id} className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm" onClick={() => handleClientSelect(client)}><div className="font-medium">{client.nombre_completo}</div><div className="text-xs text-gray-500">{client.telefono && <span><Phone className="inline h-3 w-3 mr-1" />{client.telefono}</span>}</div></li>))}</ul></div>
-                    )}
+                    <button 
+                      onClick={() => {
+                        if (showClientForm) {
+                          setSelectedClient(null);
+                          setClientName('');
+                          setClientPhone('');
+                          setClientEmail('');
+                          setClientAddress('');
+                          setClientSearchQuery('');
+                        }
+                        setShowClientForm(!showClientForm);
+                      }}
+                      className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col gap-4 text-left group
+                        ${showClientForm ? 'bg-indigo-50/50 border-indigo-500 shadow-lg shadow-indigo-200/50' : 'bg-white border-slate-100 hover:border-slate-200'}`}
+                    >
+                      <div className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all 
+                        ${showClientForm ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100'}`}>
+                        <User className="h-7 w-7" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest block mb-1">Información Fiscal</span>
+                        <h4 className="text-lg font-black text-slate-900 font-outfit uppercase">¿Registrar Cliente?</h4>
+                        <p className="text-xs text-slate-400 font-medium mt-1 uppercase tracking-tighter">Asociar factura a base de datos</p>
+                      </div>
+                      {showClientForm && (
+                        <div className="absolute top-4 right-4 h-6 w-6 bg-indigo-600 rounded-full flex items-center justify-center animate-in zoom-in-50">
+                          <CheckCircle className="h-4 w-4 text-white" />
+                        </div>
+                      )}
+                    </button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div><label htmlFor="clientName" className="block text-xs font-medium text-gray-700 mb-1">Nombre completo<span className="text-red-500">*</span></label><div className="relative rounded-md shadow-sm"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className="h-4 w-4 text-gray-400" /></div><input id="clientName" type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} className="pl-10 pr-3 py-2 bg-white focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Nombre del cliente" required={isDelivery || paymentMethod === 'credito'}/></div></div>
-                    <div><label htmlFor="clientPhone" className="block text-xs font-medium text-gray-700 mb-1">Teléfono</label><div className="relative rounded-md shadow-sm"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Phone className="h-4 w-4 text-gray-400" /></div><input id="clientPhone" type="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="pl-10 pr-3 py-2 bg-white focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Número de contacto"/></div></div>
-                    <div className="sm:col-span-2"><label htmlFor="clientEmail" className="block text-xs font-medium text-gray-700 mb-1">Correo (opcional)</label><div className="relative rounded-md shadow-sm"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Mail className="h-4 w-4 text-gray-400" /></div><input id="clientEmail" type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className="pl-10 pr-3 py-2 bg-white focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="correo@ejemplo.com"/></div></div>
-                    <div className="sm:col-span-2"><label htmlFor="clientAddress" className="block text-xs font-medium text-gray-700 mb-1">Dirección (opcional)</label><div className="relative rounded-md shadow-sm"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><MapPin className="h-4 w-4 text-gray-400" /></div><input id="clientAddress" type="text" value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} className="pl-10 pr-3 py-2 bg-white focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Dirección del cliente"/></div></div>
-                  </div>
-                </div>
-              )}
-              {isDelivery && (
-                <div className="bg-slate-100 p-4 rounded-lg space-y-3">
-                  <h4 className="text-md font-semibold text-gray-800 mb-1">Información de entrega</h4>
-                  {selectedClient && clientAddresses.length > 0 && (<div><label htmlFor="savedAddresses" className="block text-xs font-medium text-gray-700 mb-1">Direcciones guardadas</label><select id="savedAddresses" className="w-full border-gray-300 bg-white rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 py-2 px-3 sm:text-sm" onChange={(e) => { const addr = clientAddresses.find(a => a.id === e.target.value); if (addr) handleAddressSelect(addr); else { setSelectedAddress(null); setDeliveryAddress(''); setAddressReferences('');}}} value={selectedAddress?.id || ''}><option value="">-- Nueva dirección --</option>{clientAddresses.map(address => (<option key={address.id} value={address.id}>{address.direccion}</option>))}</select></div>)}
-                  <div><label htmlFor="deliveryAddr" className="block text-xs font-medium text-gray-700 mb-1">Dirección <span className="text-red-500">*</span></label><div className="relative rounded-md shadow-sm"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><MapPin className="h-4 w-4 text-gray-400" /></div><input id="deliveryAddr" type="text" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} className="pl-10 pr-3 py-2 bg-white focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Dirección completa" required={isDelivery}/></div></div>
-                  <div><label htmlFor="addressRef" className="block text-xs font-medium text-gray-700 mb-1">Referencias</label><textarea id="addressRef" value={addressReferences} onChange={(e) => setAddressReferences(e.target.value)} rows={2} className="mt-1 px-3 py-2 bg-white focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Indicaciones adicionales" /></div>
-                  <div><label htmlFor="deliveryCst" className="block text-xs font-medium text-gray-700 mb-1">Costo envío <span className="text-red-500">*</span></label><div className="mt-1 relative rounded-md shadow-sm"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span className="text-gray-500 sm:text-sm">$</span></div><input id="deliveryCst" type="text" inputMode="decimal" value={deliveryCost} onChange={handleDeliveryCostChange} className="pl-7 pr-3 py-2 bg-white focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="0" required={isDelivery}/></div></div>
-                </div>
-              )}
-              
-              <div><label className="block text-sm font-medium text-gray-700 mb-2">Método de pago</label><div className="grid grid-cols-2 gap-2 sm:gap-3">{paymentOptions.map(method => (<button key={method.value} type="button" className={`flex items-center justify-center px-2 py-2.5 sm:px-3 sm:py-3 border rounded-md text-xs sm:text-sm font-medium transition-colors ${ paymentMethod === method.value ? 'bg-primary-50 border-primary-500 text-primary-700 ring-2 ring-primary-500' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`} onClick={() => setPaymentMethod(method.value)}>{method.icon}{method.label}</button>))}</div></div>
-              <div><label htmlFor="saleNotes" className="block text-sm font-medium text-gray-700 mb-2">Notas</label><textarea id="saleNotes" rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Información adicional de la venta..." value={notes} onChange={(e) => setNotes(e.target.value)}/></div>
-              
-              <div className="bg-slate-100 p-4 rounded-lg">
-                <div className="space-y-2">
-                  <h4 className="text-md font-semibold text-gray-800 mb-3">Resumen del pedido</h4>
-                  {cart.map(item => (
-                    <div key={item.id} className="flex justify-between text-sm text-gray-600">
-                    <span className="pr-2">
-                      {item.name} (x{item.quantity})
-                        {item.discountApplied && item.discountApplied > 0 && (
-                          <span className="text-green-600 ml-1">(-${item.discountApplied.toLocaleString()})</span>
+
+                  {!isDelivery && !showClientForm && paymentMethod !== 'credito' && (
+                    <div className="bg-amber-50/50 border border-amber-100/50 p-8 rounded-[2.5rem] animate-in fade-in slide-in-from-top-4 duration-500">
+                      <div className="flex items-start gap-4">
+                        <div className="h-10 w-10 bg-amber-400 rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-lg shadow-amber-200 animate-pulse">
+                          <Zap className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-amber-900 uppercase font-outfit">Venta Rápida Activada</h4>
+                          <p className="text-[11px] text-amber-700 font-bold uppercase mt-1 leading-relaxed opacity-80">
+                            No has seleccionado domicilio ni registro de cliente. 
+                            Puedes proceder directamente a confirmar el pago.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(isDelivery || showClientForm || paymentMethod === 'credito') && (
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-6">
+                      <div className="flex items-center gap-3 pb-6 border-b border-slate-50">
+                        <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
+                          <User className="h-5 w-5" />
+                        </div>
+                        <h4 className="text-lg font-black text-slate-900 font-outfit uppercase">Detalles del Cliente</h4>
+                      </div>
+
+                      <div ref={clientSearchRef} className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                          <Search className="h-4 w-4" />
+                        </div>
+                        <input 
+                          type="text" 
+                          placeholder="BUSCAR CLIENTE POR NOMBRE O TELÉFONO..." 
+                          className="w-full pl-11 pr-6 py-4 bg-slate-50 border-transparent focus:bg-white focus:ring-2 focus:ring-primary-500 rounded-2xl shadow-inner text-sm font-bold uppercase tracking-widest transition-all"
+                          value={clientSearchQuery} 
+                          onChange={(e) => { 
+                            setClientSearchQuery(e.target.value); 
+                            setShowClientSearch(true); 
+                            if (selectedClient && e.target.value !== selectedClient.nombre_completo) { 
+                              setSelectedClient(null); 
+                              setClientName(e.target.value); 
+                            } else if (!selectedClient) { 
+                              setClientName(e.target.value); 
+                            } 
+                          }} 
+                          onFocus={() => setShowClientSearch(true)} 
+                        />
+                        {showClientSearch && filteredClients.length > 0 && clientSearchQuery && (
+                          <div className="absolute z-60 w-full mt-2 bg-white rounded-3xl shadow-2xl border border-slate-100 max-h-60 overflow-hidden animate-in zoom-in-95">
+                            <ul className="divide-y divide-slate-50">
+                              {filteredClients.map(client => (
+                                <li key={client.id} className="p-4 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => handleClientSelect(client)}>
+                                  <div className="font-black text-slate-900 font-outfit uppercase text-sm">{client.nombre_completo}</div>
+                                  <div className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-widest flex items-center gap-2">
+                                    <Phone className="h-3 w-3" />
+                                    {client.telefono || 'SIN TELÉFONO'}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
                         )}
-                      </span>
-                      <span className="flex-shrink-0">${(item.price * item.quantity).toLocaleString()}</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Nombre Facturación</label>
+                          <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-xl text-xs font-bold uppercase" placeholder="NOMBRE COMPLETO" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">WhatsApp / Tel</label>
+                          <input type="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-xl text-xs font-bold uppercase" placeholder="300 000 0000" />
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                  <div className="pt-2 border-t border-gray-200">
-                    <div className="flex justify-between text-sm text-gray-600">
-                      <span>Subtotal</span>
-                      <span>${calculateSubtotal().toLocaleString()}</span>
+                  )}
+                </div>
+              )}
+
+              {/* STEP 2: LOGÍSTICA DE ENVÍO */}
+              {paymentStep === 2 && isDelivery && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-6">
+                    <div className="flex items-center gap-3 pb-6 border-b border-slate-50">
+                      <div className="h-10 w-10 bg-primary-50 rounded-xl flex items-center justify-center text-primary-600">
+                        <MapPin className="h-5 w-5" />
+                      </div>
+                      <h4 className="text-lg font-black text-slate-900 font-outfit uppercase">Ubicación de Entrega</h4>
                     </div>
-                    {isDelivery && (Number(deliveryCost) || 0) > 0 && (
-                      <div className="flex justify-between text-sm text-gray-600">
-                        <span>Domicilio</span>
-                        <span>${(Number(deliveryCost) || 0).toLocaleString()}</span>
+
+                    {selectedClient && clientAddresses.length > 0 && (
+                      <div className="space-y-4">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Direcciones Guardadas</label>
+                        <div className="grid grid-cols-1 gap-2">
+                          {clientAddresses.map(address => (
+                            <button 
+                              key={address.id} 
+                              onClick={() => handleAddressSelect(address)}
+                              className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-3
+                                ${selectedAddress?.id === address.id ? 'bg-primary-50/50 border-primary-500' : 'bg-white border-slate-50 hover:border-slate-100'}`}
+                            >
+                              <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${selectedAddress?.id === address.id ? 'bg-primary-600 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                                <MapPin className="h-4 w-4" />
+                              </div>
+                              <span className="text-xs font-bold uppercase truncate">{address.direccion}</span>
+                            </button>
+                          ))}
+                          <button 
+                            onClick={() => { setSelectedAddress(null); setDeliveryAddress(''); setAddressReferences(''); }}
+                            className={`p-4 rounded-2xl border-2 border-dashed text-left transition-all flex items-center gap-3
+                              ${!selectedAddress ? 'bg-slate-50 border-slate-300' : 'border-slate-200 text-slate-400'}`}
+                          >
+                            <Plus className="h-4 w-4" />
+                            <span className="text-xs font-bold uppercase tracking-tight">Nueva Dirección</span>
+                          </button>
+                        </div>
                       </div>
                     )}
-                    {appliedDiscount && (
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>Descuento ({appliedDiscount.type === 'percentage' ? `${appliedDiscount.value}%` : 'Monto fijo'})</span>
-                        <span>-${appliedDiscount.discountAmount.toLocaleString()}</span>
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Dirección de Destino</label>
+                        <input type="text" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-xl text-xs font-bold uppercase" placeholder="CALLE, CARRERA, BARRIO..." />
                       </div>
-                    )}
-                    <div className="flex justify-between mt-2 pt-2 border-t border-gray-300">
-                      <span className="text-base font-medium text-gray-900">Total a pagar</span>
-                      <span className="text-lg font-bold text-primary-600">${calculateTotal().toLocaleString()}</span>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Indicaciones / Referencias</label>
+                        <textarea value={addressReferences} onChange={(e) => setAddressReferences(e.target.value)} rows={2} className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-xl text-xs font-bold uppercase resize-none" placeholder="EJ: CASA BLANCA SEGUNDO PISO..." />
+                      </div>
+                      <div className="space-y-2 pt-4">
+                        <label className="text-sm font-black text-slate-900 font-outfit uppercase">Costo del Envío</label>
+                        <div className="relative group">
+                          <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-900 font-black">$</div>
+                          <input type="text" inputMode="decimal" value={deliveryCost} onChange={handleDeliveryCostChange} className="w-full pl-10 pr-6 py-4 bg-slate-100 border-none rounded-2xl text-xl font-black font-outfit tracking-tighter" placeholder="0" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* STEP 3: MÉTODO DE PAGO & RESUMEN */}
+              {paymentStep === 3 && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Selecciona Método de Pago</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {paymentOptions.map(method => (
+                        <button 
+                          key={method.value} 
+                          type="button" 
+                          onClick={() => {
+                            if (method.value === 'credito' && !selectedClient && !clientName.trim()) {
+                              showAlertModal('Identificación Necesaria', 'Para ventas a crédito o domicilios con pago pendiente, es obligatorio registrar o asignar un cliente.', 'warning');
+                            }
+                            setPaymentMethod(method.value);
+                          }}
+                          className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 group
+                            ${ paymentMethod === method.value 
+                                ? 'bg-primary-600 border-primary-600 shadow-lg shadow-primary-200 shadow-primary-900/10' 
+                                : 'bg-white border-slate-100 hover:border-slate-200'}`}
+                        >
+                          <div className={`h-10 w-10 rounded-xl flex items-center justify-center transition-all
+                            ${paymentMethod === method.value ? 'bg-white/20 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100'}`}>
+                            {method.icon}
+                          </div>
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${paymentMethod === method.value ? 'text-white' : 'text-slate-600'}`}>
+                            {method.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white space-y-6 shadow-2xl">
+                    <div className="flex items-center gap-3 pb-6 border-b border-white/10">
+                      <div className="h-10 w-10 bg-white/10 rounded-xl flex items-center justify-center text-white">
+                        <ShoppingBag className="h-5 w-5" />
+                      </div>
+                      <h4 className="text-lg font-black font-outfit uppercase">Resumen de Factura</h4>
+                    </div>
+
+                    <div className="space-y-3 max-h-40 overflow-y-auto custom-scrollbar-white pr-2">
+                      {cart.map(item => (
+                        <div key={item.id} className="flex justify-between items-start text-xs font-black uppercase tracking-widest">
+                          <span className="text-slate-400 pr-4">{item.name} (x{item.quantity})</span>
+                          <span>${(item.price * item.quantity).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="pt-6 border-t border-white/10 space-y-4">
+                      <div className="flex justify-between text-xs font-black uppercase text-slate-400 tracking-widest">
+                        <span>Abono Logística</span>
+                        <span className="text-white">${(Number(deliveryCost) || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-end">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-rose-400 uppercase mb-1">Total Neto a Recibir</span>
+                          <span className="text-4xl font-black font-outfit tracking-tighter text-primary-400">
+                            ${calculateTotal().toLocaleString()}
+                          </span>
+                        </div>
+                        <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${paymentMethod === 'credito' ? 'bg-amber-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                          {paymentMethod === 'credito' ? 'CRÉDITO PENDIENTE' : 'RECIBO CERRADO'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {((paymentMethod as string) === 'credito') && !selectedClient && (
+                    <div className="bg-rose-50 border border-rose-200 p-8 rounded-[2.5rem] space-y-4 animate-in slide-in-from-top-4 shadow-xl shadow-rose-100">
+                      <div className="flex items-center gap-3 pb-4 border-b border-rose-100">
+                        <div className="h-10 w-10 bg-rose-600 rounded-xl flex items-center justify-center text-white">
+                          <UserPlus className="h-5 w-5" />
+                        </div>
+                        <h4 className="text-sm font-black text-rose-900 uppercase tracking-tight">Asignación de Cliente Requerida</h4>
+                      </div>
+                      <p className="text-[11px] font-bold text-rose-700 uppercase tracking-tight leading-relaxed">
+                        {paymentMethod === 'credito' 
+                          ? 'Las ventas a crédito no pueden ser anónimas. Debes registrar un cliente para llevar el historial de deuda.'
+                          : 'Este domicilio requiere un cliente asociado para procesar el pago pendiente.'}
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-rose-900/40 uppercase tracking-widest ml-2">Nombre Completo *</label>
+                          <input 
+                            type="text" 
+                            value={clientName} 
+                            onChange={(e) => setClientName(e.target.value)} 
+                            className="w-full px-5 py-4 bg-white border-none rounded-xl text-xs font-black uppercase ring-2 ring-rose-100 focus:ring-rose-500 transition-all" 
+                            placeholder="NOMBRE DEL DEUDOR" 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-rose-900/40 uppercase tracking-widest ml-2">WhatsApp / Tel *</label>
+                          <input 
+                            type="tel" 
+                            value={clientPhone} 
+                            onChange={(e) => setClientPhone(e.target.value)} 
+                            className="w-full px-5 py-4 bg-white border-none rounded-xl text-xs font-black uppercase ring-2 ring-rose-100 focus:ring-rose-500 transition-all" 
+                            placeholder="CELULAR DE CONTACTO" 
+                          />
+                        </div>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setPaymentStep(1)}
+                        className="w-full py-3 bg-white border border-rose-200 rounded-xl text-[10px] font-black uppercase text-rose-600 hover:bg-rose-50 transition-all mt-2"
+                      >
+                        O buscar cliente existente en el Paso 1
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Notas de Auditoría</label>
+                    <textarea 
+                      placeholder="INFORMACIÓN ADICIONAL DE LA VENTA..." 
+                      className="w-full px-6 py-4 bg-slate-100 border-none rounded-2xl text-[10px] font-black uppercase tracking-widest resize-none h-24 focus:ring-2 focus:ring-primary-500" 
+                      value={notes} 
+                      onChange={(e) => setNotes(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="p-4 border-t flex flex-col-reverse sm:flex-row-reverse gap-3">
-              <button type="button" className="w-full inline-flex justify-center items-center px-4 py-2.5 sm:py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:w-auto disabled:opacity-50" onClick={handleCompleteSale} disabled={isSubmitting || cart.length === 0}>{isSubmitting ? (<><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Procesando...</>) : ('Completar venta')}</button>
-              <button type="button" className="w-full inline-flex justify-center px-4 py-2.5 sm:py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:w-auto" onClick={handleClosePaymentModal}>Cancelar</button>
+
+            {/* Modal Actions Footer */}
+            <div className="p-8 pb-10 border-t border-slate-50 bg-white flex flex-col-reverse sm:grid sm:grid-cols-2 gap-4">
+              <button 
+                onClick={paymentStep === 1 ? handleClosePaymentModal : () => setPaymentStep(prev => prev === 3 && !isDelivery ? 1 : prev - 1)}
+                className="py-4 rounded-2xl text-slate-400 font-black uppercase tracking-widest text-[10px] hover:bg-slate-50 transition-all border border-slate-100"
+              >
+                {paymentStep === 1 ? 'Cancelar' : 'Regresar'}
+              </button>
+
+              {paymentStep < 3 ? (
+                <button 
+                  onClick={() => setPaymentStep(prev => prev === 1 && !isDelivery ? 3 : prev + 1)}
+                  className="py-4 rounded-2xl bg-slate-900 text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2 group"
+                >
+                  Continuar
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              ) : (
+                <button 
+                  disabled={isSubmitting || !paymentMethod || (paymentMethod === 'credito' && !selectedClient && !clientName.trim())}
+                  onClick={handleCompleteSale}
+                  className="py-4 rounded-2xl bg-gradient-to-r from-primary-600 to-indigo-600 text-white font-black uppercase tracking-widest text-[10px] shadow-xl shadow-primary-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale"
+                >
+                  {isSubmitting ? (
+                    <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {isSubmitting ? 'PROCESANDO...' : 'CONFIRMAR Y FINALIZAR'}
+                </button>
+              )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       
       {/* Discount Modal */}

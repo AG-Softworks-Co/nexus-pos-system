@@ -77,7 +77,11 @@ const Credits: React.FC = () => {
         .order('creada_en', { ascending: false });
 
       if (error) throw error;
-      setCreditSales(data || []);
+      setCreditSales((data || []).map((sale: any) => ({
+        ...sale,
+        cliente: Array.isArray(sale.cliente) ? sale.cliente[0] : sale.cliente,
+        usuario: Array.isArray(sale.usuario) ? sale.usuario[0] : sale.usuario
+      })));
     } catch (err: any) {
       console.error('Error fetching credit sales:', err);
       setError('Error al cargar ventas a crédito');

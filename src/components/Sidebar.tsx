@@ -151,7 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const baseClasses =
     'bg-[#0f111a] text-slate-300 flex flex-col h-full shadow-2xl border-r border-slate-800/60';
-  const responsiveClasses = `fixed inset-y-0 left-0 w-64 z-40 transform transition-transform duration-300 ease-in-out md:static md:translate-x-0 md:inset-auto md:z-auto md:w-64 md:flex-shrink-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'
+  const responsiveClasses = `fixed inset-y-0 left-0 w-64 z-[100] transform transition-transform duration-300 ease-in-out md:static md:translate-x-0 md:inset-auto md:z-auto md:w-64 md:flex-shrink-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'
     }`;
   const linkBaseClasses =
     'flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-colors duration-150 ease-in-out text-sm font-medium group';

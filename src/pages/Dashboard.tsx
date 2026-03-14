@@ -200,7 +200,7 @@ const Dashboard: React.FC = () => {
       let totalQuantity = 0;
 
       salesData?.forEach(sale => {
-        sale.detalle_ventas.forEach(detail => {
+        sale.detalle_ventas.forEach((detail: any) => {
           const productName = detail.producto.nombre;
           const currentStats = productStats.get(productName) || { quantity: 0, amount: 0 };
 

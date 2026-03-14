@@ -288,8 +288,8 @@ const Layout: React.FC = () => {
       {/* Overlay: Se muestra detrás del sidebar en móvil cuando está abierto */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden" // z-index menor que sidebar (z-40)
-          onClick={closeSidebar} // Cierra el sidebar al hacer clic en el overlay
+          className="fixed inset-0 bg-black bg-opacity-50 z-[90] md:hidden" // z-index superior al carrito pero inferior al sidebar (z-100)
+          onClick={closeSidebar}
           aria-hidden="true"
         ></div>
       )}

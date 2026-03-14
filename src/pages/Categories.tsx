@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, AlertCircle, Layers, Tag, Package, ChevronRight, X, Info } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, AlertCircle, Layers, Tag, Package, ChevronRight, X, Info, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Database } from '../types/database';
