@@ -101,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const handleUserSession = useCallback(
-    async (sessionUser: any | null, fromInitialLoad: boolean) => {
+    async (sessionUser: { id: string; email?: string } | null, fromInitialLoad: boolean) => {
       if (sessionUser) {
         console.log('AuthProvider: Session user found:', sessionUser.id);
         const userProfile = await fetchUserProfile(
@@ -210,8 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         console.error('🚨 AuthProvider: Login error:', error);
         console.error('🚨 Error details:', {
           message: error.message,
-          status: error.status,
-          statusText: error.statusText
+          status: error.status
         });
         throw error;
       }
@@ -220,10 +219,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         data.user?.id
       );
       // onAuthStateChange (y por ende handleUserSession) se encargará del resto
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('🚨 AuthProvider: Catch block error:', err);
-      console.error('🚨 Error type:', typeof err);
-      console.error('🚨 Error constructor:', err.constructor.name);
       throw err;
     } finally {
       setIsAuthenticating(false);

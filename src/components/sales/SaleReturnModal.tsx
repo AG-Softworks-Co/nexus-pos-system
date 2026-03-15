@@ -132,9 +132,10 @@ const SaleReturnModal: React.FC<SaleReturnModalProps> = ({ isOpen, onClose, sale
         onSuccess();
         onClose();
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error creating return:', err);
-      setError(`Error al procesar la devolución: ${err.message}`);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(`Error al procesar la devolución: ${errorMessage}`);
       setIsSubmitting(false);
     }
   };

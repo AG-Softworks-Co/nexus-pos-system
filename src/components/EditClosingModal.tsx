@@ -3,10 +3,12 @@ import { X, Save, DollarSign, AlertTriangle, Edit3, Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
+import { CashClosing } from '../types/cash';
+
 interface EditClosingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  closing: any | null;
+  closing: CashClosing | null;
   onSuccess: () => void;
 }
 

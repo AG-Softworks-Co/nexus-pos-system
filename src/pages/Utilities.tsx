@@ -21,6 +21,12 @@ import {
   Filler,
 } from 'chart.js';
 import { Line, Bar, Doughnut, Pie } from 'react-chartjs-2';
+import { UserOptions } from 'jspdf-autotable';
+
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: UserOptions) => jsPDF;
+  lastAutoTable: { finalY: number };
+}
 
 ChartJS.register(
   CategoryScale,
@@ -76,14 +82,7 @@ const Utilities: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Actualizar datos automáticamente cuando cambien las fechas
-  useEffect(() => {
-    if (user?.negocioId) {
-      fetchUtilityMetrics();
-    }
-  }, [user, startDate, endDate, dateMode]);
-
-  const fetchUtilityMetrics = async () => {
+  const fetchUtilityMetrics = React.useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -122,8 +121,8 @@ const Utilities: React.FC = () => {
       if (salesError) throw salesError;
 
       // Calculate metrics
-      let totalSales = 0;
-      let totalCosts = 0;
+      let tSales = 0;
+      let tCosts = 0;
       const productMetrics: Map<string, {
         name: string;
         revenue: number;
@@ -136,25 +135,42 @@ const Utilities: React.FC = () => {
         cost: number;
       }> = new Map();
 
-      const paymentMethods: Map<string, number> = new Map();
-      const dailyMetrics: Map<string, { revenue: number; cost: number }> = new Map();
+      const paymentMethodsMap: Map<string, number> = new Map();
+      const dailyMetricsMap: Map<string, { revenue: number; cost: number }> = new Map();
 
-      salesData?.forEach(sale => {
-        totalSales += sale.total;
+      const data = (salesData as unknown) as Array<{
+        total: number;
+        metodo_pago: string;
+        creada_en: string;
+        detalle_ventas: Array<{
+          cantidad: number;
+          precio_unitario: number;
+          producto: {
+            id: string;
+            nombre: string;
+            precio_costo: number | null;
+            categorias: { nombre: string } | null;
+          } | null;
+        }>;
+      }>;
+
+      (data || []).forEach((sale) => {
+        tSales += sale.total;
         
         // Payment method breakdown
-        const currentAmount = paymentMethods.get(sale.metodo_pago) || 0;
-        paymentMethods.set(sale.metodo_pago, currentAmount + sale.total);
+        const currentAmount = paymentMethodsMap.get(sale.metodo_pago) || 0;
+        paymentMethodsMap.set(sale.metodo_pago, currentAmount + sale.total);
 
         // Daily metrics
         const saleDate = format(new Date(sale.creada_en), 'yyyy-MM-dd');
-        const dailyData = dailyMetrics.get(saleDate) || { revenue: 0, cost: 0 };
+        const dailyData = dailyMetricsMap.get(saleDate) || { revenue: 0, cost: 0 };
         dailyData.revenue += sale.total;
         
-        sale.detalle_ventas.forEach(detail => {
-          const productCost = detail.producto.precio_costo * detail.cantidad;
+        (sale.detalle_ventas || []).forEach((detail) => {
+          if (!detail.producto) return;
+          const productCost = (detail.producto.precio_costo || 0) * detail.cantidad;
           const productRevenue = detail.precio_unitario * detail.cantidad;
-          totalCosts += productCost;
+          tCosts += productCost;
           dailyData.cost += productCost;
 
           // Product metrics
@@ -172,17 +188,17 @@ const Utilities: React.FC = () => {
 
           // Category metrics
           const categoryName = detail.producto.categorias?.nombre || 'Sin categoría';
-          const categoryData = categoryMetrics.get(categoryName) || { revenue: 0, cost: 0 };
-          categoryData.revenue += productRevenue;
-          categoryData.cost += productCost;
-          categoryMetrics.set(categoryName, categoryData);
+          const categoryDataLine = categoryMetrics.get(categoryName) || { revenue: 0, cost: 0 };
+          categoryDataLine.revenue += productRevenue;
+          categoryDataLine.cost += productCost;
+          categoryMetrics.set(categoryName, categoryDataLine);
         });
 
-        dailyMetrics.set(saleDate, dailyData);
+        dailyMetricsMap.set(saleDate, dailyData);
       });
 
-      const profit = totalSales - totalCosts;
-      const profitMargin = totalSales > 0 ? (profit / totalSales) * 100 : 0;
+      const prof = tSales - tCosts;
+      const margin = tSales > 0 ? (prof / tSales) * 100 : 0;
 
       // Convert to arrays and sort
       const topProducts = Array.from(productMetrics.values())
@@ -197,7 +213,7 @@ const Utilities: React.FC = () => {
         .sort((a, b) => b.profit - a.profit)
         .slice(0, 10);
 
-      const categoryProfits = Array.from(categoryMetrics.entries())
+      const categoryProfitsArr = Array.from(categoryMetrics.entries())
         .map(([category, data]) => ({
           category,
           profit: data.revenue - data.cost,
@@ -206,7 +222,7 @@ const Utilities: React.FC = () => {
         }))
         .sort((a, b) => b.profit - a.profit);
 
-      const dailyProfits = Array.from(dailyMetrics.entries())
+      const dailyProfitsArr = Array.from(dailyMetricsMap.entries())
         .map(([date, data]) => ({
           date,
           revenue: data.revenue,
@@ -215,8 +231,8 @@ const Utilities: React.FC = () => {
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
-      const totalPayments = Array.from(paymentMethods.values()).reduce((sum, amount) => sum + amount, 0);
-      const paymentMethodBreakdown = Array.from(paymentMethods.entries())
+      const totalPayments = Array.from(paymentMethodsMap.values()).reduce((s, amount) => s + amount, 0);
+      const paymentMethodBreakdownArr = Array.from(paymentMethodsMap.entries())
         .map(([method, amount]) => ({
           method,
           amount,
@@ -225,22 +241,29 @@ const Utilities: React.FC = () => {
         .sort((a, b) => b.amount - a.amount);
 
       setMetrics({
-        totalSales,
-        totalCosts,
-        profit,
-        profitMargin,
+        totalSales: tSales,
+        totalCosts: tCosts,
+        profit: prof,
+        profitMargin: margin,
         topProducts,
-        dailyProfits,
-        categoryProfits,
-        paymentMethodBreakdown
+        dailyProfits: dailyProfitsArr,
+        categoryProfits: categoryProfitsArr,
+        paymentMethodBreakdown: paymentMethodBreakdownArr
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching utility metrics:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.negocioId, startDate, endDate, dateMode]);
+
+  // Actualizar datos automáticamente cuando cambien las fechas
+  useEffect(() => {
+    if (user?.negocioId) {
+      fetchUtilityMetrics();
+    }
+  }, [user?.negocioId, fetchUtilityMetrics]);
 
   const handleDateRangeChange = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates;
@@ -286,7 +309,8 @@ const Utilities: React.FC = () => {
     if (!metrics) return;
 
     const doc = new jsPDF();
-    const businessName = "Mi Negocio";
+    const businessNameLocal = "Mi Negocio";
+    console.log(`Generando reporte para ${businessNameLocal}`);
 
     // Title
     doc.setFontSize(20);
@@ -306,7 +330,7 @@ const Utilities: React.FC = () => {
       ['Margen de Utilidad', `${metrics.profitMargin.toFixed(2)}%`]
     ];
 
-    (doc as any).autoTable({
+    (doc as jsPDFWithAutoTable).autoTable({
       startY: 50,
       head: [['Métrica', 'Valor']],
       body: summaryData,
@@ -316,7 +340,7 @@ const Utilities: React.FC = () => {
 
     // Top Products Table
     doc.setFontSize(12);
-    doc.text('Productos más Rentables', 20, (doc as any).lastAutoTable.finalY + 20);
+    doc.text('Productos más Rentables', 20, (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 20);
 
     const productData = metrics.topProducts.map(product => [
       product.name,
@@ -326,8 +350,8 @@ const Utilities: React.FC = () => {
       `${product.margin.toFixed(2)}%`
     ]);
 
-    (doc as any).autoTable({
-      startY: (doc as any).lastAutoTable.finalY + 25,
+    (doc as jsPDFWithAutoTable).autoTable({
+      startY: (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 25,
       head: [['Producto', 'Ingresos', 'Costos', 'Utilidad', 'Margen']],
       body: productData,
       theme: 'grid',
@@ -350,7 +374,7 @@ const Utilities: React.FC = () => {
           padding: 20,
           font: {
             size: 12,
-            weight: '500'
+            weight: 500
           }
         }
       },
@@ -363,9 +387,10 @@ const Utilities: React.FC = () => {
         cornerRadius: 8,
         displayColors: true,
         callbacks: {
-          label: (context: any) => {
-            const value = context.raw as number;
-            return `${context.dataset.label}: $${value.toLocaleString()}`;
+          label: (item: unknown) => {
+            const tooltipItem = item as { raw: number; dataset: { label?: string } };
+            const val = tooltipItem.raw;
+            return `${tooltipItem.dataset.label}: $${val.toLocaleString()}`;
           }
         }
       }
@@ -377,7 +402,7 @@ const Utilities: React.FC = () => {
           color: 'rgba(0, 0, 0, 0.1)',
         },
         ticks: {
-          callback: (value: any) => `$${Number(value).toLocaleString()}`,
+          callback: (value: string | number) => `$${Number(value).toLocaleString()}`,
           font: {
             size: 11
           }
@@ -758,11 +783,16 @@ const Utilities: React.FC = () => {
                         titleColor: 'white',
                         bodyColor: 'white',
                         callbacks: {
-                          label: (context: any) => {
-                            const value = context.raw as number;
-                            const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+                          label: (context: unknown) => {
+                            const tooltipContext = context as { 
+                              raw: number; 
+                              dataset: { data: number[] }; 
+                              label: string 
+                            };
+                            const value = tooltipContext.raw;
+                            const total = tooltipContext.dataset.data.reduce((a: number, b: number) => a + b, 0);
                             const percentage = ((value / total) * 100).toFixed(1);
-                            return `${context.label}: $${value.toLocaleString()} (${percentage}%)`;
+                            return `${tooltipContext.label}: $${value.toLocaleString()} (${percentage}%)`;
                           }
                         }
                       }
@@ -812,7 +842,7 @@ const Utilities: React.FC = () => {
                           padding: 15,
                           font: {
                             size: 11,
-                            weight: '500'
+                            weight: 500
                           }
                         }
                       },
@@ -821,10 +851,11 @@ const Utilities: React.FC = () => {
                         titleColor: 'white',
                         bodyColor: 'white',
                         callbacks: {
-                          label: (context: any) => {
-                            const value = context.raw as number;
-                            const percentage = metrics.paymentMethodBreakdown[context.dataIndex].percentage;
-                            return `${context.label}: $${value.toLocaleString()} (${percentage.toFixed(1)}%)`;
+                          label: (item: unknown) => {
+                            const tooltipItem = item as { raw: number; dataIndex: number; label: string };
+                            const val = tooltipItem.raw;
+                            const percentage = metrics.paymentMethodBreakdown[tooltipItem.dataIndex].percentage;
+                            return `${tooltipItem.label}: $${val.toLocaleString()} (${percentage.toFixed(1)}%)`;
                           }
                         }
                       }
@@ -880,10 +911,11 @@ const Utilities: React.FC = () => {
                       titleColor: 'white',
                       bodyColor: 'white',
                       callbacks: {
-                        label: (context: any) => {
-                          const product = metrics.topProducts[context.dataIndex];
+                        label: (context: unknown) => {
+                          const tooltipContext = context as { dataIndex: number; raw: number };
+                          const product = metrics.topProducts[tooltipContext.dataIndex];
                           return [
-                            `Margen: ${context.raw}%`,
+                            `Margen: ${tooltipContext.raw}%`,
                             `Utilidad: $${product.profit.toLocaleString()}`,
                             `Vendidos: ${product.quantity} unidades`
                           ];
@@ -899,7 +931,7 @@ const Utilities: React.FC = () => {
                         color: 'rgba(0, 0, 0, 0.1)',
                       },
                       ticks: {
-                        callback: (value: any) => `${Number(value)}%`,
+                        callback: (value: string | number) => `${Number(value)}%`,
                         font: {
                           size: 11
                         }
@@ -960,7 +992,7 @@ const Utilities: React.FC = () => {
                           color: 'rgba(0, 0, 0, 0.1)',
                         },
                         ticks: {
-                          callback: (value: any) => `$${Number(value).toLocaleString()}`,
+                          callback: (value: string | number) => `$${Number(value).toLocaleString()}`,
                           font: {
                             size: 11
                           }

@@ -60,9 +60,10 @@ const CashMovementModal: React.FC<CashMovementModalProps> = ({ isOpen, onClose, 
       setDescripcion('');
       setTipo('egreso');
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving movement:', err);
-      toast.error(err.message || 'Error al guardar el movimiento');
+      const errorMessage = err instanceof Error ? err.message : 'Error al guardar el movimiento';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

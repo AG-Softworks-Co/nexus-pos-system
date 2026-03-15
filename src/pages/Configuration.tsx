@@ -11,15 +11,8 @@ import {
   Trash2,
   Check,
   X,
-  Monitor,
-  Smartphone,
   Bell,
   CreditCard,
-  Package,
-  Users,
-  MessageSquare,
-  Download,
-  Upload,
   RefreshCw
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -106,24 +99,16 @@ const Configuration: React.FC = () => {
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
   const [ticketTemplates, setTicketTemplates] = useState<TicketTemplate[]>([]);
   const [showThemeModal, setShowThemeModal] = useState(false);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTheme, setEditingTheme] = useState<CustomTheme | null>(null);
-  const [editingTemplate, setEditingTemplate] = useState<TicketTemplate | null>(null);
 
   // Estados adicionales
   const [showTemplatePreview, setShowTemplatePreview] = useState(false);
 
   // Estados para formularios
   const [themeForm, setThemeForm] = useState<Partial<CustomTheme>>({});
-  const [templateForm, setTemplateForm] = useState<Partial<TicketTemplate>>({});
 
-  useEffect(() => {
-    if (user?.negocioId) {
-      fetchConfigurations();
-    }
-  }, [user]);
 
-  const fetchConfigurations = async () => {
+  const fetchConfigurations = React.useCallback(async () => {
     setLoading(true);
     try {
       // Fetch business configuration
@@ -156,13 +141,19 @@ const Configuration: React.FC = () => {
       if (templatesError) throw templatesError;
       setTicketTemplates(templatesData || []);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching configurations:', err);
       setError('Error al cargar configuraciones');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.negocioId]);
+
+  useEffect(() => {
+    if (user?.negocioId) {
+      fetchConfigurations();
+    }
+  }, [user?.negocioId, fetchConfigurations]);
 
   const saveBusinessConfig = async () => {
     if (!businessConfig || !user?.negocioId) return;
@@ -181,8 +172,8 @@ const Configuration: React.FC = () => {
 
       if (error) throw error;
       setSuccess('Configuración guardada exitosamente');
-    } catch (err: any) {
-      setError('Error al guardar configuración: ' + err.message);
+    } catch (err: unknown) {
+      setError('Error al guardar configuración: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setSaving(false);
     }
@@ -214,8 +205,8 @@ const Configuration: React.FC = () => {
       setEditingTheme(null);
       setThemeForm({});
       setSuccess('Tema guardado exitosamente');
-    } catch (err: any) {
-      setError('Error al guardar tema: ' + err.message);
+    } catch (err: unknown) {
+      setError('Error al guardar tema: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setSaving(false);
     }
@@ -231,8 +222,8 @@ const Configuration: React.FC = () => {
       if (error) throw error;
       await fetchConfigurations();
       setSuccess('Tema activado exitosamente');
-    } catch (err: any) {
-      setError('Error al activar tema: ' + err.message);
+    } catch (err: unknown) {
+      setError('Error al activar tema: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -246,8 +237,8 @@ const Configuration: React.FC = () => {
       if (error) throw error;
       await fetchConfigurations();
       setSuccess('Tema eliminado exitosamente');
-    } catch (err: any) {
-      setError('Error al eliminar tema: ' + err.message);
+    } catch (err: unknown) {
+      setError('Error al eliminar tema: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -261,8 +252,8 @@ const Configuration: React.FC = () => {
       if (error) throw error;
       await fetchConfigurations();
       setSuccess('Plantilla activada exitosamente');
-    } catch (err: any) {
-      setError('Error al activar plantilla: ' + err.message);
+    } catch (err: unknown) {
+      setError('Error al activar plantilla: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -276,12 +267,12 @@ const Configuration: React.FC = () => {
       if (error) throw error;
       await fetchConfigurations();
       setSuccess('Plantilla eliminada exitosamente');
-    } catch (err: any) {
-      setError('Error al eliminar plantilla: ' + err.message);
+    } catch (err: unknown) {
+      setError('Error al eliminar plantilla: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
-  const generateTemplatePreview = (template: TicketTemplate) => {
+  const generateTemplatePreview = () => {
     setShowTemplatePreview(true);
   };
 
@@ -478,27 +469,6 @@ const Configuration: React.FC = () => {
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium text-gray-900">Configuración de Tickets</h3>
                 <button
-                  onClick={() => {
-                    setEditingTemplate(null);
-                    setTemplateForm({
-                      nombre: '',
-                      descripcion: '',
-                      mostrar_encabezado: true,
-                      mostrar_fecha_hora: true,
-                      mostrar_vendedor: true,
-                      mostrar_cliente: true,
-                      mostrar_metodo_pago: true,
-                      mostrar_sku: false,
-                      mostrar_precio_unitario: true,
-                      mostrar_subtotales: true,
-                      mostrar_totales: true,
-                      mostrar_qr_codigo: false,
-                      alineacion_titulo: 'center',
-                      negrita_titulo: true,
-                      separadores: true
-                    });
-                    setShowTemplateModal(true);
-                  }}
                   className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -713,18 +683,13 @@ const Configuration: React.FC = () => {
                     <div className="flex justify-between items-center">
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => {
-                            setEditingTemplate(template);
-                            setTemplateForm(template);
-                            setShowTemplateModal(true);
-                          }}
                           className="text-primary-600 hover:text-primary-900"
                           title="Editar plantilla"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button 
-                          onClick={() => generateTemplatePreview(template)}
+                          onClick={() => generateTemplatePreview()}
                           className="text-gray-600 hover:text-gray-900"
                           title="Vista previa"
                         >

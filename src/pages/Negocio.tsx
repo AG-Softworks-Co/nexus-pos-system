@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Building2,
   Upload,
@@ -45,8 +44,7 @@ interface BusinessEditFormData {
 }
 
 const Negocio: React.FC = () => {
-  const { user, refreshUser } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -94,9 +92,9 @@ const Negocio: React.FC = () => {
       if (error) throw error;
       setBusinessData(data);
       setLogoPreview(data.logo_url);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching business details:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setLoading(false);
     }
@@ -211,9 +209,9 @@ const Negocio: React.FC = () => {
       await fetchBusinessDetails();
       setIsEditing(false);
       setSuccessMessage('¡Información actualizada con éxito!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating business:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setIsSubmitting(false);
     }

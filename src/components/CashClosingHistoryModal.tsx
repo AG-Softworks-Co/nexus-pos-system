@@ -7,68 +7,63 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import toast from 'react-hot-toast';
 
-interface CashMovement {
-  id: string;
-  tipo: 'ingreso' | 'egreso';
-  monto: number;
-  descripcion: string;
-  creado_en: string;
-}
-
-interface PaymentDetail {
-  metodo_pago: string;
-  monto: number;
-}
+import { CashClosing, CashMovement, PaymentDetail } from '../types/cash';
 
 interface CashClosingHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  closing: any | null;
-  onEdit?: (closing: any) => void;
+  closing: CashClosing | null;
+  onEdit?: (closing: CashClosing) => void;
   userRole?: string;
 }
+
+const AlertTriangle = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+  </svg>
+);
 
 const CashClosingHistoryModal: React.FC<CashClosingHistoryModalProps> = ({ isOpen, onClose, closing, onEdit, userRole }) => {
   const [movements, setMovements] = useState<CashMovement[]>([]);
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchDetails = React.useCallback(async () => {
+    if (!closing) return;
+    setLoading(true);
+    try {
+      // Fetch movements
+      const { data: movs, error: movsError } = await supabase
+        .from('movimientos_caja')
+        .select('*')
+        .eq('cierre_caja_id', closing.id)
+        .order('creado_en', { ascending: true });
+
+      if (movsError) throw movsError;
+      setMovements(movs || []);
+
+      // Fetch payment method breakdown
+      const { data: details, error: detailsError } = await supabase
+        .from('detalle_cierre_caja')
+        .select('metodo_pago, monto')
+        .eq('cierre_id', closing.id);
+
+      if (detailsError) throw detailsError;
+      setPaymentDetails(details || []);
+
+    } catch (err: unknown) {
+      console.error('Error fetching closing details:', err);
+      toast.error('Error al cargar detalles del cierre');
+    } finally {
+      setLoading(false);
+    }
+  }, [closing]);
+
   useEffect(() => {
-    const fetchDetails = async () => {
-      if (!closing) return;
-      setLoading(true);
-      try {
-        // Fetch movements
-        const { data: movs, error: movsError } = await supabase
-          .from('movimientos_caja')
-          .select('*')
-          .eq('cierre_caja_id', closing.id)
-          .order('creado_en', { ascending: true });
-
-        if (movsError) throw movsError;
-        setMovements(movs || []);
-
-        // Fetch payment method breakdown
-        const { data: details, error: detailsError } = await supabase
-          .from('detalle_cierre_caja')
-          .select('metodo_pago, monto')
-          .eq('cierre_id', closing.id);
-
-        if (detailsError) throw detailsError;
-        setPaymentDetails(details || []);
-
-      } catch (err) {
-        console.error('Error fetching closing details:', err);
-        toast.error('Error al cargar detalles del cierre');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (isOpen && closing) {
       fetchDetails();
     }
-  }, [isOpen, closing]);
+  }, [isOpen, closing, fetchDetails]);
 
   if (!isOpen || !closing) return null;
 
@@ -465,10 +460,6 @@ const CashClosingHistoryModal: React.FC<CashClosingHistoryModalProps> = ({ isOpe
   );
 };
 
-const AlertTriangle = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-  </svg>
-);
+
 
 export default CashClosingHistoryModal;

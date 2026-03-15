@@ -50,7 +50,12 @@ const SaleEditModal: React.FC<SaleEditModalProps> = ({ isOpen, onClose, sale, on
     setError(null);
 
     try {
-      const updateData: any = {
+      const updateData: {
+        notas: string | null;
+        editada_por: string | undefined;
+        razon_edicion: string;
+        fecha_vencimiento_credito?: string;
+      } = {
         notas: formData.notas || null,
         editada_por: user?.id,
         razon_edicion: formData.razon_edicion
@@ -69,9 +74,10 @@ const SaleEditModal: React.FC<SaleEditModalProps> = ({ isOpen, onClose, sale, on
 
       onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating sale:', err);
-      setError(`Error al actualizar la venta: ${err.message}`);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(`Error al actualizar la venta: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }

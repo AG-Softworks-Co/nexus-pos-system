@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, ShieldAlert, AlertCircle, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../contexts/AuthContext';
 import type { Sale } from '../../types/sales';
 
 interface SaleDeleteModalProps {
@@ -50,9 +49,10 @@ const SaleDeleteModal: React.FC<SaleDeleteModalProps> = ({ isOpen, onClose, sale
 
       onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting sale:', err);
-      setError(`Error al anular la venta: ${err.message}`);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(`Error al anular la venta: ${errorMessage}`);
     } finally {
       setIsDeleting(false);
     }

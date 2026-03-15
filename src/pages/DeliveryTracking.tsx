@@ -10,16 +10,12 @@ import {
   MessageSquare,
   ChefHat,
   Package,
-  Navigation,
   Calendar,
   Search,
   RefreshCw,
   Edit,
   Send,
-  X,
-  ChevronRight,
-  ArrowRight,
-  ExternalLink
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -77,7 +73,6 @@ const DeliveryTracking: React.FC = () => {
   const [deliveries, setDeliveries] = useState<DeliveryTracking[]>([]);
   const [deliveryStates, setDeliveryStates] = useState<DeliveryState[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryTracking | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
@@ -97,29 +92,22 @@ const DeliveryTracking: React.FC = () => {
     tiempo_estimado_entrega: ''
   });
 
-  useEffect(() => {
-    if (user?.negocioId) {
-      fetchDeliveryStates();
-      fetchDeliveries();
-    }
-  }, [user, statusFilter, dateFilter]);
-
-  const fetchDeliveryStates = async () => {
+  const fetchDeliveryStates = React.useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error: statesError } = await supabase
         .from('estados_domicilio')
         .select('*')
         .eq('activo', true)
         .order('orden');
 
-      if (error) throw error;
+      if (statesError) throw statesError;
       setDeliveryStates(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching delivery states:', err);
     }
-  };
+  }, []);
 
-  const fetchDeliveries = async () => {
+  const fetchDeliveries = React.useCallback(async () => {
     setLoading(true);
     try {
       let query = supabase
@@ -162,31 +150,37 @@ const DeliveryTracking: React.FC = () => {
 
       query = query.order('fecha_pedido', { ascending: false });
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const { data, error: fetchError } = await query;
+      if (fetchError) throw fetchError;
       setDeliveries(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching deliveries:', err);
-      setError('Error al sincronizar domicilios');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.negocioId, statusFilter, dateFilter]);
 
-  const fetchNotifications = async (deliveryId: string) => {
+  useEffect(() => {
+    if (user?.negocioId) {
+      fetchDeliveryStates();
+      fetchDeliveries();
+    }
+  }, [user?.negocioId, fetchDeliveryStates, fetchDeliveries]);
+
+  const fetchNotifications = React.useCallback(async (deliveryId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('notificaciones_whatsapp')
         .select('*')
         .eq('seguimiento_id', deliveryId)
         .order('fecha_envio', { ascending: false });
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
       setNotifications(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching notifications:', err);
     }
-  };
+  }, []);
 
   const handleEditDelivery = (delivery: DeliveryTracking) => {
     setSelectedDelivery(delivery);
@@ -225,8 +219,8 @@ const DeliveryTracking: React.FC = () => {
       if (error) throw error;
       await fetchDeliveries();
       setShowEditModal(false);
-    } catch (err: any) {
-      setError('Error al actualizar el estado del envío');
+    } catch (err: unknown) {
+      console.error('Error updating delivery:', err);
     } finally {
       setIsUpdating(false);
     }

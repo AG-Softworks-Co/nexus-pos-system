@@ -7,11 +7,9 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
-  Building2,
   Store,
   LineChart,
   ShieldCheck,
-  Zap
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -36,17 +34,18 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
+      const error = err as { message?: string };
 
-      if (err.message?.includes('Failed to fetch')) {
+      if (error.message?.includes('Failed to fetch')) {
         errorMessage = 'No se puede conectar al servidor. Verifica tu conexión a internet.';
-      } else if (err.message?.includes('Invalid login credentials')) {
+      } else if (error.message?.includes('Invalid login credentials')) {
         errorMessage = 'Credenciales incorrectas. Verifica tu email y contraseña.';
-      } else if (err.message?.includes('Email not confirmed')) {
+      } else if (error.message?.includes('Email not confirmed')) {
         errorMessage = 'Debes confirmar tu email antes de iniciar sesión.';
-      } else if (err.message) {
-        errorMessage = err.message;
+      } else if (error.message) {
+        errorMessage = error.message;
       }
 
       setPageError(errorMessage);
@@ -57,7 +56,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     const phoneNumber = '573226650405';
     const message = encodeURIComponent(
-      'Hola equipo de Nexus POS, me gustaría solicitar una demostración o membresía para mi negocio.'
+      'Hola equipo de Vendrix POS, me gustaría solicitar una demostración o membresía para mi negocio.'
     );
     window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
   };
@@ -69,12 +68,12 @@ const Login: React.FC = () => {
       <div className="w-full lg:w-[45%] xl:w-[40%] flex flex-col items-center justify-center p-6 sm:p-12 relative z-10 bg-white lg:shadow-[20px_0_40px_rgba(0,0,0,0.1)]">
         <div className="w-full max-w-sm sm:max-w-md flex flex-col h-full justify-center lg:justify-between py-10 lg:py-0">
 
-          {/* Header Mobile Solo (Logo y Título) */}
-          <div className="lg:hidden flex items-center justify-center space-x-3 mb-12 sm:mb-16">
-            <div className="bg-gradient-to-br from-primary-600 to-primary-800 p-2.5 rounded-xl shadow-[0_8px_16px_rgba(79,70,229,0.3)]">
-              <Zap className="w-6 h-6 text-white" />
+          {/* Logo y Título */}
+          <div className="flex items-center justify-center lg:justify-start space-x-3 mb-12 sm:mb-16">
+            <div className="bg-white/10 p-1 rounded-xl shadow-[0_8px_16px_rgba(79,70,229,0.3)] h-12 w-12 flex items-center justify-center">
+              <img src="/LOGO%20ICONO%20V.png" alt="Vendrix Icon" className="w-full h-full object-cover rounded-lg" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Nexus POS</h1>
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Vendrix POS</h1>
           </div>
 
           <div className="flex-1 flex flex-col justify-center">
@@ -215,7 +214,7 @@ const Login: React.FC = () => {
         <div className="absolute inset-0 z-0 bg-primary-950">
           <img
             src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=2000&auto=format&fit=crop"
-            alt="Nexus POS Modern Business"
+            alt="Vendrix POS Modern Business"
             className="w-full h-full object-cover opacity-25 mix-blend-luminosity filter contrast-125"
           />
           {/* Gradient Overlays for perfect text readability */}
@@ -229,11 +228,11 @@ const Login: React.FC = () => {
 
           {/* Branding */}
           <div className="flex items-center space-x-4 animate-fade-in-down">
-            <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 shadow-2xl">
-              <Building2 className="w-8 h-8 text-white" />
+            <div className="bg-white/10 backdrop-blur-md p-1 rounded-2xl border border-white/10 shadow-2xl overflow-hidden h-14 w-14 flex items-center justify-center">
+              <img src="/LOGO%20ICONO%20V.png" alt="Vendrix Icon" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">Nexus POS</h1>
+              <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">Vendrix POS</h1>
               <p className="text-primary-300 font-bold tracking-[0.2em] text-[10px] uppercase mt-0.5">Enterprise Edition</p>
             </div>
           </div>

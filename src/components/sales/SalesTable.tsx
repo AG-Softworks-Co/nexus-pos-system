@@ -13,7 +13,7 @@ interface SalesTableProps {
   historyFilter?: string;
 }
 
-export const formatDate = (dateString: string) => {
+const formatDate = (dateString: string) => {
   const options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'short',

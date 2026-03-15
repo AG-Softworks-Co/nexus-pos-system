@@ -89,7 +89,7 @@ const SalePreviewModal: React.FC<SalePreviewModalProps> = ({ sale, onClose, onGe
   const totalPagado = partialPayments.reduce((sum, p) => sum + p.monto, 0);
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
       
       <div className="relative w-full max-w-3xl bg-white rounded-t-[2.5rem] sm:rounded-[3rem] shadow-2xl animate-in zoom-in slide-in-from-bottom duration-400 flex flex-col max-h-[92vh] overflow-hidden">
@@ -213,7 +213,15 @@ const SalePreviewModal: React.FC<SalePreviewModalProps> = ({ sale, onClose, onGe
                 </div>
                 <div className="divide-y divide-slate-50">
                    {sale.detalle_ventas && sale.detalle_ventas.length > 0 ? (
-                     sale.detalle_ventas.map((item) => {
+                     sale.detalle_ventas.map((item: {
+          producto: {
+            nombre: string;
+            sku: string;
+          };
+          cantidad: number;
+          precio_unitario: number;
+          id: string;
+        }) => {
                         const returnedQty = returnedQuantities[item.id] || 0;
                         const hasReturn = returnedQty > 0;
                         return (

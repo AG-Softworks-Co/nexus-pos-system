@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { FileSpreadsheet, ArrowLeft, TrendingUp, DollarSign, CreditCard, ShoppingBag, Search, Filter, Calendar as CalendarIcon, RefreshCcw } from 'lucide-react';
+import { FileSpreadsheet, TrendingUp, DollarSign, CreditCard, ShoppingBag, RefreshCcw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import SalesTable from '../components/sales/SalesTable';
@@ -22,7 +22,7 @@ const Sales: React.FC = () => {
   const location = useLocation();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -44,28 +44,10 @@ const Sales: React.FC = () => {
     historyFilter: 'active'
   });
 
-  useEffect(() => {
-    if (user?.negocioId) {
-      fetchSales();
-    }
-  }, [user, filters.historyFilter]);
-
-  useEffect(() => {
-    if (!loading && sales.length > 0 && location.state?.highlightSaleId) {
-      const saleId = location.state.highlightSaleId;
-      const sale = sales.find(s => s.id === saleId);
-      if (sale) {
-        setSelectedSale(sale);
-        setShowDetailModal(true);
-        window.history.replaceState({}, document.title);
-      }
-    }
-  }, [loading, sales, location.state]);
-
-  const fetchSales = async () => {
+  const fetchSales = React.useCallback(async () => {
     setLoading(true);
     try {
-      let salesData = [];
+      let salesData: Sale[] = [];
       if (filters.historyFilter === 'deleted') {
         const { data: historyData, error: historyError } = await supabase
           .from('historial_ventas')
@@ -74,14 +56,18 @@ const Sales: React.FC = () => {
           .order('creado_en', { ascending: false });
 
         if (historyError) throw historyError;
-        salesData = historyData?.map(history => ({
-          ...history.datos_anteriores,
+        salesData = (historyData || []).map((history: { 
+          datos_anteriores: unknown; 
+          creado_en: string; 
+          usuario_id: string 
+        }) => ({
+          ...(history.datos_anteriores as Sale),
           _isDeleted: true,
           _deletedAt: history.creado_en,
           _deletedBy: history.usuario_id
-        })) || [];
+        })) as Sale[];
       } else {
-        const { data, error } = await supabase
+        const { data, error: fetchError } = await supabase
           .from('ventas')
           .select(`
             *,
@@ -98,9 +84,9 @@ const Sales: React.FC = () => {
           .eq('negocio_id', user?.negocioId)
           .order('creada_en', { ascending: false });
 
-        if (error) throw error;
+        if (fetchError) throw fetchError;
         const saleIds = data?.map(sale => sale.id) || [];
-        let returnsData: any[] = [];
+        let returnsData: { venta_id: string; monto_devolucion: number }[] = [];
         if (saleIds.length > 0) {
           const { data: returns, error: returnsError } = await supabase
             .from('devoluciones')
@@ -110,23 +96,42 @@ const Sales: React.FC = () => {
           if (returnsError) throw returnsError;
           returnsData = returns || [];
         }
-        salesData = data?.map(sale => {
+        salesData = (data || []).map(sale => {
           const saleReturns = returnsData.filter(r => r.venta_id === sale.id);
           return {
             ...sale,
             _hasReturns: saleReturns.length > 0,
             _returnAmount: saleReturns.reduce((sum, r) => sum + r.monto_devolucion, 0)
           };
-        }) || [];
+        }) as Sale[];
       }
       setSales(salesData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching sales:', err);
-      setError('Error al sincronizar historial de ventas');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.negocioId, filters.historyFilter]);
+
+  useEffect(() => {
+    if (user?.negocioId) {
+      fetchSales();
+    }
+  }, [user?.negocioId, fetchSales]);
+
+  useEffect(() => {
+    if (!loading && sales.length > 0 && location.state?.highlightSaleId) {
+      const saleId = location.state.highlightSaleId;
+      const sale = sales.find(s => s.id === saleId);
+      if (sale) {
+        setSelectedSale(sale);
+        setShowDetailModal(true);
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [loading, sales, location.state]);
+
+
 
   const handleExportExcel = async () => {
     if (!exportDateRange[0] || !exportDateRange[1]) return;
@@ -153,9 +158,9 @@ const Sales: React.FC = () => {
         .order('creada_en', { ascending: false });
 
       if (error) throw error;
-      const exportData = data.map(sale => {
-        const products = sale.detalle_ventas
-          .map((detail: any) => `${detail.producto.nombre} (${detail.cantidad}x$${detail.precio_unitario})`)
+      const exportData = (data || []).map(sale => {
+        const products = (sale.detalle_ventas || [])
+          .map((detail: { producto: { nombre: string }; cantidad: number; precio_unitario: number }) => `${detail.producto.nombre} (${detail.cantidad}x$${detail.precio_unitario})`)
           .join('\n');
 
         return {
@@ -167,18 +172,19 @@ const Sales: React.FC = () => {
           'Dcto': sale.descuento || 0,
           'Total': sale.total,
           'Método': sale.metodo_pago,
-          'Estado': sale.estado_pago || sale.estado
+          'Estado': sale.estado_pago || sale.estado,
+          'Productos': products
         };
       });
 
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
-      const fileName = `ventas_nexus_${formatDateForExcel(startDate.toISOString()).split(' ')[0]}.xlsx`;
+      const fileName = `ventas_vendrix_${formatDateForExcel(startDate.toISOString()).split(' ')[0]}.xlsx`;
       XLSX.writeFile(wb, fileName);
       setShowExportModal(false);
     } catch (err) {
-      setError('Falla al exportar reporte comercial');
+      console.error('Falla al exportar reporte comercial:', err);
     }
   };
 

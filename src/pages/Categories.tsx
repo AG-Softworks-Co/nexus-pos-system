@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, AlertCircle, Layers, Tag, Package, ChevronRight, X, Info } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, AlertCircle, Layers, Tag, Package, ChevronRight, X, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Database } from '../types/database';
@@ -22,28 +22,28 @@ const Categories: React.FC = () => {
     descripcion: ''
   });
   
-  useEffect(() => {
-    if (user?.negocioId) {
-      fetchCategories();
-    }
-  }, [user]);
-
-  const fetchCategories = async () => {
+  const fetchCategories = React.useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('categorias')
         .select('*')
         .eq('negocio_id', user?.negocioId)
         .order('nombre');
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
       setCategories(data || []);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching categories:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.negocioId]);
+
+  useEffect(() => {
+    if (user?.negocioId) {
+      fetchCategories();
+    }
+  }, [user?.negocioId, fetchCategories]);
 
   const handleEditClick = (category: Category) => {
     setEditingCategory(category);
@@ -93,8 +93,8 @@ const Categories: React.FC = () => {
       await fetchCategories();
       setShowModal(false);
       setFormData({ nombre: '', descripcion: '' });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -110,7 +110,7 @@ const Categories: React.FC = () => {
       if (error) throw error;
       await fetchCategories();
       setDeleteConfirmId(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting category:', err);
     }
   };

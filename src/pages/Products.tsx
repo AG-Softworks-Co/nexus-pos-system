@@ -32,8 +32,6 @@ const Products: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
   const [showStockAlerts, setShowStockAlerts] = useState(false);
-  const [skuInput, setSkuInput] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -47,59 +45,59 @@ const Products: React.FC = () => {
     requiere_stock: true
   });
 
-  useEffect(() => {
-    if (user?.negocioId) {
-      fetchProducts();
-      fetchCategories();
-      fetchStockAlerts();
-    }
-  }, [user]);
-
-  const fetchProducts = async () => {
+  const fetchProducts = React.useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('productos')
         .select('*')
         .eq('negocio_id', user?.negocioId);
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
       setProducts(data || []);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching products:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.negocioId]);
 
-  const fetchStockAlerts = async () => {
+  const fetchStockAlerts = React.useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('stock_alertas')
         .select('*')
         .eq('negocio_id', user?.negocioId)
         .eq('leido', false)
         .order('creado_en', { ascending: false });
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
       setStockAlerts(data || []);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching stock alerts:', err);
     }
-  };
+  }, [user?.negocioId]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = React.useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('categorias')
         .select('*')
         .eq('negocio_id', user?.negocioId);
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
       setCategories(data || []);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching categories:', err);
     }
-  };
+  }, [user?.negocioId]);
+
+  useEffect(() => {
+    if (user?.negocioId) {
+      fetchProducts();
+      fetchCategories();
+      fetchStockAlerts();
+    }
+  }, [user?.negocioId, fetchProducts, fetchCategories, fetchStockAlerts]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -181,8 +179,8 @@ const Products: React.FC = () => {
       await fetchProducts();
       setShowModal(false);
       resetForm();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -208,7 +206,7 @@ const Products: React.FC = () => {
       if (error) throw error;
       await fetchProducts();
       setDeleteConfirmId(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting product:', err);
     }
   };
@@ -230,7 +228,7 @@ const Products: React.FC = () => {
     setShowModal(true);
   };
 
-  const resetForm = () => {
+  const resetForm = React.useCallback(() => {
     setFormData({
       nombre: '',
       descripcion: '',
@@ -246,31 +244,7 @@ const Products: React.FC = () => {
     setImagePreview(null);
     setEditingProduct(null);
     setError(null);
-  };
-
-  const handleScanBarcode = () => {
-    setIsScanning(true);
-    // Here you would typically integrate with a barcode scanner
-    // For now, we'll just focus the SKU input
-    const skuInput = document.getElementById('sku');
-    if (skuInput) {
-      skuInput.focus();
-    }
-  };
-
-  const handleSkuInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setFormData({ ...formData, sku: value });
-    setSkuInput(value);
-  };
-
-  const handleSkuInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && isScanning) {
-      e.preventDefault();
-      setIsScanning(false);
-      // Here you would typically handle the scanned barcode
-    }
-  };
+  }, []);
 
   const markAlertAsRead = async (alertId: string) => {
     try {
@@ -619,20 +593,13 @@ const Products: React.FC = () => {
                           SKU / Código de barras
                         </label>
                         <div className="mt-1 flex rounded-md shadow-sm">
-                          <input
+                           <input
                             type="text"
                             id="sku"
                             value={formData.sku}
                             onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                            className="focus:ring-primary-500 focus:border-primary-500 flex-1 block w-full rounded-l-md sm:text-sm border-gray-300"
+                            className="focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
                           />
-                          <button
-                            type="button"
-                            onClick={handleScanBarcode}
-                            className="relative -ml-px inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                          >
-                            <Barcode className="h-5 w-5 text-gray-400" />
-                          </button>
                         </div>
                       </div>
 
