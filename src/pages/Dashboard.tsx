@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, ShoppingBag, Activity, Clock, Calendar, TrendingUp, Users, Package, CreditCard, Truck, Filter, RefreshCw } from 'lucide-react';
+import { DollarSign, ShoppingBag, Activity, Calendar, TrendingUp, Users, Package, CreditCard, Truck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import StatsCard from '../components/dashboard/StatsCard';
@@ -7,7 +7,7 @@ import WeeklySalesChart from '../components/dashboard/WeeklySalesChart';
 import TopProducts from '../components/dashboard/TopProducts';
 import DateRangePicker from '../components/dashboard/DateRangePicker';
 import ProductQuantityChart from '../components/dashboard/ProductQuantityChart';
-import SalesTable from '../components/sales/SalesTable';
+
 import SalePreviewModal from '../components/sales/SalePreviewModal';
 import { generateSaleReceipt } from '../utils/pdfUtils';
 import { startOfDay, endOfDay, subDays, format, differenceInDays } from 'date-fns';
@@ -47,67 +47,7 @@ const Dashboard: React.FC = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
-  // Actualizar datos automáticamente cuando cambien las fechas
-  useEffect(() => {
-    if (user?.negocioId) {
-      // Inicializar con últimos 7 días por defecto
-      const end = new Date();
-      const start = subDays(end, 6);
-      setStartDate(start);
-      setEndDate(end);
-      setDateMode('range');
-      fetchDashboardData();
-    }
-  }, [user]);
-
-  // Efecto separado para actualizar datos cuando cambien las fechas
-  useEffect(() => {
-    if (user?.negocioId) {
-      fetchDashboardData();
-    }
-  }, [startDate, endDate, dateMode]);
-
-  const handleDateRangeChange = (dates: [Date | null, Date | null]) => {
-    const [start, end] = dates;
-    if (start) {
-      setStartDate(start);
-      if (end) {
-        setEndDate(end);
-        setDateMode('range');
-      } else {
-        setEndDate(start);
-        setDateMode('single');
-      }
-    }
-  };
-
-  const handleQuickDateSelect = (days: number) => {
-    if (days === 0) {
-      // Hoy
-      const today = new Date();
-      setStartDate(today);
-      setEndDate(today);
-      setDateMode('single');
-    } else {
-      // Rango de días
-      const end = new Date();
-      const start = subDays(end, days - 1);
-      setStartDate(start);
-      setEndDate(end);
-      setDateMode('range');
-    }
-  };
-
-  const formatDateRange = () => {
-    if (dateMode === 'single') {
-      return format(startDate, "d 'de' MMMM 'de' yyyy", { locale: es });
-    } else {
-      const daysDiff = differenceInDays(endDate, startDate) + 1;
-      return `${format(startDate, 'dd/MM', { locale: es })} - ${format(endDate, 'dd/MM/yyyy', { locale: es })} (${daysDiff} días)`;
-    }
-  };
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = React.useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -184,7 +124,7 @@ const Dashboard: React.FC = () => {
       const totalSales = salesData?.reduce((sum, sale) => sum + sale.total, 0) || 0;
       const totalOrders = salesData?.length || 0;
 
-      const stats: DashboardStats = {
+      const statsInfo: DashboardStats = {
         totalSales,
         totalOrders,
         averageTicket: totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0,
@@ -197,16 +137,16 @@ const Dashboard: React.FC = () => {
 
       // Process product quantities and amounts
       const productStats = new Map<string, { quantity: number; amount: number }>();
-      let totalQuantity = 0;
+      let totalQuantityValue = 0;
 
       salesData?.forEach(sale => {
-        sale.detalle_ventas.forEach((detail: any) => {
+        (sale.detalle_ventas as unknown as { producto: { nombre: string }; cantidad: number; precio_unitario: number }[]).forEach((detail) => {
           const productName = detail.producto.nombre;
           const currentStats = productStats.get(productName) || { quantity: 0, amount: 0 };
 
           currentStats.quantity += detail.cantidad;
           currentStats.amount += detail.cantidad * detail.precio_unitario;
-          totalQuantity += detail.cantidad;
+          totalQuantityValue += detail.cantidad;
 
           productStats.set(productName, currentStats);
         });
@@ -227,7 +167,7 @@ const Dashboard: React.FC = () => {
         .map(([name, stats]) => ({
           name,
           quantity: stats.quantity,
-          percentage: totalQuantity > 0 ? (stats.quantity / totalQuantity) * 100 : 0
+          percentage: totalQuantityValue > 0 ? (stats.quantity / totalQuantityValue) * 100 : 0
         }))
         .sort((a, b) => b.quantity - a.quantity)
         .slice(0, 5);
@@ -268,19 +208,68 @@ const Dashboard: React.FC = () => {
         amount
       }));
 
-      setStats(stats);
+      setStats(statsInfo);
       setSalesData(processedSalesData);
       setTopProducts(topProductsList);
       setProductQuantities(quantitiesList);
       setRecentSales(salesData?.slice(0, 5) || []);
 
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching dashboard data:', err);
       setError('Error al cargar los datos del dashboard');
     } finally {
       setLoading(false);
     }
+  }, [user?.negocioId, dateMode, startDate, endDate]);
+
+  // Handle initialization and subsequent updates
+  useEffect(() => {
+    if (user?.negocioId) {
+      fetchDashboardData();
+    }
+  }, [fetchDashboardData, user?.negocioId]);
+
+  const handleDateRangeChange = (dates: [Date | null, Date | null]) => {
+    const [start, end] = dates;
+    if (start) {
+      setStartDate(start);
+      if (end) {
+        setEndDate(end);
+        setDateMode('range');
+      } else {
+        setEndDate(start);
+        setDateMode('single');
+      }
+    }
   };
+
+  const handleQuickDateSelect = (days: number) => {
+    if (days === 0) {
+      // Hoy
+      const today = new Date();
+      setStartDate(today);
+      setEndDate(today);
+      setDateMode('single');
+    } else {
+      // Rango de días
+      const end = new Date();
+      const start = subDays(end, days - 1);
+      setStartDate(start);
+      setEndDate(end);
+      setDateMode('range');
+    }
+  };
+
+  const formatDateRange = () => {
+    if (dateMode === 'single') {
+      return format(startDate, "d 'de' MMMM 'de' yyyy", { locale: es });
+    } else {
+      const daysDiff = differenceInDays(endDate, startDate) + 1;
+      return `${format(startDate, 'dd/MM', { locale: es })} - ${format(endDate, 'dd/MM/yyyy', { locale: es })} (${daysDiff} días)`;
+    }
+  };
+
+
 
   const handleViewSale = (sale: Sale) => {
     setSelectedSale(sale);
@@ -460,8 +449,6 @@ const Dashboard: React.FC = () => {
           </div>
           <WeeklySalesChart
             salesData={salesData}
-            title={dateMode === 'single' ? 'Ventas por Hora' : 'Ventas Diarias'}
-            isHourly={dateMode === 'single'}
           />
         </div>
 

@@ -1,6 +1,6 @@
 // src/components/Header.tsx
 import React from 'react';
-import { Bell, Menu, User, LogOut, Zap } from 'lucide-react';
+import { Bell, Menu, User, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderProps {
@@ -51,10 +51,10 @@ const Header: React.FC<HeaderProps> = ({
           </button>
 
           <div className="nexus-header-brand">
-            <div className="nexus-header-logo-mark">
-              <Zap className="h-4 w-4" />
+            <div className="nexus-header-logo-mark p-0.5 overflow-hidden">
+              <img src="/LOGO%20ICONO%20V.png" alt="Vendrix Icon" className="h-full w-full object-cover rounded-sm" />
             </div>
-            <span className="nexus-header-logo-text">Nexus POS</span>
+            <span className="nexus-header-logo-text">Vendrix POS</span>
           </div>
         </div>
 

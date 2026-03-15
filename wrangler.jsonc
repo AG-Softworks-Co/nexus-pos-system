@@ -1,5 +1,5 @@
 {
-    "name": "nexus-pos-system",
+    "name": "vendrix-pos-system",
     "compatibility_date": "2025-04-01",
     "assets": {
         "directory": "./dist",

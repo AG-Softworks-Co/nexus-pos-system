@@ -213,7 +213,15 @@ const SalePreviewModal: React.FC<SalePreviewModalProps> = ({ sale, onClose, onGe
                 </div>
                 <div className="divide-y divide-slate-50">
                    {sale.detalle_ventas && sale.detalle_ventas.length > 0 ? (
-                     sale.detalle_ventas.map((item) => {
+                     sale.detalle_ventas.map((item: {
+          producto: {
+            nombre: string;
+            sku: string;
+          };
+          cantidad: number;
+          precio_unitario: number;
+          id: string;
+        }) => {
                         const returnedQty = returnedQuantities[item.id] || 0;
                         const hasReturn = returnedQty > 0;
                         return (

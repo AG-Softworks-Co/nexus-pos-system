@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, SlidersHorizontal, X, Calendar, CreditCard, Truck, Archive, ChevronDown, Check } from 'lucide-react';
+import { Search, SlidersHorizontal, X, Calendar, CreditCard, Truck, Archive, ChevronDown } from 'lucide-react';
 
 interface SalesFiltersProps {
   searchQuery: string;

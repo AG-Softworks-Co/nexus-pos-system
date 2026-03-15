@@ -95,36 +95,36 @@ const Layout: React.FC = () => {
           table: 'ventas',
         },
         (payload) => {
-          const newRecord = payload.new as any;
-          const oldRecord = payload.old as any;
+          const newRecord = payload.new as Record<string, unknown> | null;
+          const oldRecord = payload.old as Record<string, unknown> | null;
           const eventType = payload.eventType;
 
           // Filtering by business - Important!
           // For INSERT/UPDATE, we check the new record.
-          if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRecord.negocio_id !== user.negocioId) {
+          if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRecord?.negocio_id !== user.negocioId) {
             return;
           }
 
           // For DELETE, we might not have negocio_id unless replica identity is FULL.
           // Fallback: we check if we already have this sale in our local notifications.
           if (eventType === 'DELETE') {
-            const saleId = oldRecord.id;
+            const saleId = oldRecord?.id as string;
             const exists = notifications.some(n => n.saleId === saleId);
             if (!exists) return; // If we didn't know about it, it's likely not ours or not relevant.
           }
 
           let title = '';
           let message = '';
-          let saleId = (newRecord || oldRecord)?.id;
+          const saleId = (newRecord || oldRecord)?.id as string;
 
           const totalFormatted = new Intl.NumberFormat('es-CO', {
             style: 'currency',
             currency: 'COP',
             minimumFractionDigits: 0
-          }).format((newRecord || oldRecord)?.total || 0);
+          }).format(Number((newRecord || oldRecord)?.total || 0));
 
           if (eventType === 'INSERT') {
-            if (newRecord.usuario_id === user.id) return; // Don't notify the one who made the sale
+            if (newRecord?.usuario_id === user.id) return; // Don't notify the one who made the sale
             title = '💰 ¡Nueva Venta!';
             message = `Se registró una venta por ${totalFormatted}`;
           } else if (eventType === 'UPDATE') {
@@ -143,7 +143,7 @@ const Layout: React.FC = () => {
             read: false,
             createdAt: new Date().toISOString(),
             saleId,
-            actionType: eventType.toLowerCase() as any
+            actionType: eventType.toLowerCase() as NotificationItem['actionType']
           };
           setNotifications(prev => [newNotification, ...prev]);
 
@@ -171,8 +171,8 @@ const Layout: React.FC = () => {
           // If not Owner/Admin, ignore
           if (user.rol !== 'propietario' && user.rol !== 'administrador') return;
 
-          const newRecord = payload.new as any;
-          if (newRecord.negocio_id !== user.negocioId) return;
+          const newRecord = payload.new as Record<string, unknown> | null;
+          if (newRecord?.negocio_id !== user.negocioId) return;
 
           let title = '';
           let message = '';
@@ -180,16 +180,16 @@ const Layout: React.FC = () => {
 
           if (eventType === 'INSERT') {
             title = '🔐 Caja Abierta';
-            message = `Se ha abierto una nueva caja con base de $${(newRecord.monto_apertura || 0).toLocaleString()}`;
+            message = `Se ha abierto una nueva caja con base de $${Number(newRecord.monto_apertura || 0).toLocaleString()}`;
           } else if (eventType === 'UPDATE') {
-            const oldRecord = payload.old as any;
-            if (newRecord.estado === 'completado' && oldRecord.estado === 'pendiente') {
+            const oldRecord = payload.old as Record<string, unknown> | null;
+            if (newRecord.estado === 'completado' && oldRecord?.estado === 'pendiente') {
               title = '🔒 Caja Cerrada';
-              message = `Se cerró la caja con efectivo real de $${(newRecord.efectivo_contado || 0).toLocaleString()}`;
-            } else if (newRecord.estado === 'completado' && oldRecord.estado === 'completado') {
+              message = `Se cerró la caja con efectivo real de $${Number(newRecord.efectivo_contado || 0).toLocaleString()}`;
+            } else if (newRecord.estado === 'completado' && oldRecord?.estado === 'completado') {
               // This is an edit of a past closure
               title = '📝 Caja Editada';
-              message = `Administrador corrigió un cierre. Nuevo efectivo real: $${(newRecord.efectivo_contado || 0).toLocaleString()}`;
+              message = `Administrador corrigió un cierre. Nuevo efectivo real: $${Number(newRecord.efectivo_contado || 0).toLocaleString()}`;
             } else {
               return;
             }
@@ -219,12 +219,12 @@ const Layout: React.FC = () => {
           // If not Owner/Admin, ignore
           if (user.rol !== 'propietario' && user.rol !== 'administrador') return;
 
-          const newRecord = payload.new as any;
-          if (newRecord.negocio_id !== user.negocioId) return;
+          const newRecord = payload.new as Record<string, unknown> | null;
+          if (newRecord?.negocio_id !== user.negocioId) return;
 
           const isIngreso = newRecord.tipo === 'ingreso';
           const title = isIngreso ? '💵 Ingreso Extra de Caja' : '💸 Gasto / Egreso de Caja';
-          const message = `Se registró un ${newRecord.tipo} por $${newRecord.monto?.toLocaleString()}: ${newRecord.descripcion}`;
+          const message = `Se registró un ${newRecord.tipo} por $${Number(newRecord.monto || 0).toLocaleString()}: ${newRecord.descripcion}`;
 
           const newNotification: NotificationItem = {
             id: `mov-${newRecord.id}-${Date.now()}`,
@@ -247,7 +247,7 @@ const Layout: React.FC = () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(cashChannel);
     };
-  }, [user, notifications]); // Added notifications to dependency for DELETE filter logic
+  }, [user, notifications, navigate]); // Added navigate for completeness
 
   const handleNotificationClick = (n: NotificationItem) => {
     // Marcar como leída

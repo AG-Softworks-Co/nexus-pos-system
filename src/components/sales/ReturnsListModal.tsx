@@ -34,13 +34,7 @@ const ReturnsListModal: React.FC<ReturnsListModalProps> = ({ isOpen, onClose, sa
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  useEffect(() => {
-    if (isOpen && user?.negocioId) {
-      fetchReturns();
-    }
-  }, [isOpen, user, saleId, statusFilter, refreshTrigger]);
-
-  const fetchReturns = async () => {
+  const fetchReturns = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -67,13 +61,20 @@ const ReturnsListModal: React.FC<ReturnsListModalProps> = ({ isOpen, onClose, sa
 
       if (error) throw error;
       setReturns(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching returns:', err);
-      setError(`Error al cargar las devoluciones: ${err.message}`);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(`Error al cargar las devoluciones: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.negocioId, saleId, statusFilter]);
+
+  useEffect(() => {
+    if (isOpen && user?.negocioId) {
+      fetchReturns();
+    }
+  }, [isOpen, user?.negocioId, fetchReturns, refreshTrigger]);
 
   const handleViewReturn = (returnId: string) => {
     setSelectedReturnId(returnId);

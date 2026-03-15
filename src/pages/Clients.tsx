@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, User, Phone, Mail, MapPin, Calendar, ShoppingCart, CreditCard, Plus, Eye, Edit, Trash2, ArrowRight, UserPlus, Users, Wallet, ChevronRight, X } from 'lucide-react';
+import { Search, User, Phone, Mail, MapPin, Calendar, ShoppingCart, CreditCard, Edit, ArrowRight, UserPlus, Users, Wallet, ChevronRight, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDisplayDate } from '../utils/dateUtils';
@@ -36,7 +36,6 @@ const Clients: React.FC = () => {
   const [showClientModal, setShowClientModal] = useState(false);
   const [showSalesModal, setShowSalesModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -46,15 +45,9 @@ const Clients: React.FC = () => {
     direccion: ''
   });
 
-  useEffect(() => {
-    if (user?.negocioId) {
-      fetchClients();
-    }
-  }, [user]);
-
-  const fetchClients = async () => {
+  const fetchClients = React.useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('clientes')
         .select(`
           *,
@@ -65,39 +58,45 @@ const Clients: React.FC = () => {
         .eq('negocio_id', user?.negocioId)
         .order('creado_en', { ascending: false });
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
 
       const processedClients = data?.map(client => ({
         ...client,
-        total_ventas: client.ventas_totales?.reduce((sum: number, venta: any) => sum + venta.total, 0) || 0,
-        total_credito: client.ventas_credito?.reduce((sum: number, venta: any) => sum + (venta.saldo_pendiente || 0), 0) || 0,
+        total_ventas: (client.ventas_totales as unknown as { total: number }[])?.reduce((sum: number, venta) => sum + venta.total, 0) || 0,
+        total_credito: (client.ventas_credito as unknown as { saldo_pendiente: number }[])?.reduce((sum: number, venta) => sum + (venta.saldo_pendiente || 0), 0) || 0,
         ultima_venta: client.ventas_totales?.[0]?.creada_en
       })) || [];
 
       setClients(processedClients);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching clients:', err);
-      setError('Error al cargar clientes');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.negocioId]);
 
-  const fetchClientSales = async (clientId: string) => {
+  const fetchClientSales = React.useCallback(async (clientId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('ventas')
         .select('id, creada_en, total, metodo_pago, estado, estado_pago, saldo_pendiente')
         .eq('cliente_id', clientId)
         .order('creada_en', { ascending: false });
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
       setClientSales(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching client sales:', err);
-      setError('Error al cargar ventas del cliente');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user?.negocioId) {
+      fetchClients();
+    }
+  }, [user?.negocioId, fetchClients]);
+
+
 
   const handleViewSales = async (client: Client) => {
     setSelectedClient(client);
@@ -129,7 +128,6 @@ const Clients: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     setIsSubmitting(true);
 
     try {
@@ -159,8 +157,8 @@ const Clients: React.FC = () => {
       await fetchClients();
       setShowClientModal(false);
       setFormData({ nombre_completo: '', telefono: '', correo: '', direccion: '' });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      console.error('Error submitting client:', err);
     } finally {
       setIsSubmitting(false);
     }

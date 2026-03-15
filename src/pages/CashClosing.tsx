@@ -34,8 +34,10 @@ interface CashClosingStats {
   }[];
 }
 
-interface CashClosing {
+interface CashRegister {
   id: string;
+  negocio_id?: string;
+  usuario_id?: string;
   fecha_inicio: string;
   fecha_fin: string | null;
   monto_apertura: number;
@@ -43,6 +45,8 @@ interface CashClosing {
   total_egresos: number;
   total_ventas: number;
   total_efectivo: number;
+  total_otros_medios?: number;
+  numero_ordenes?: number;
   efectivo_contado: number;
   diferencia: number;
   estado: 'pendiente' | 'completado' | 'anulado';
@@ -55,7 +59,7 @@ const CashClosing: React.FC = () => {
   const { user } = useAuth();
   
   // States for Active Register
-  const [activeRegister, setActiveRegister] = useState<CashClosing | null>(null);
+  const [activeRegister, setActiveRegister] = useState<CashRegister | null>(null);
   const [movements, setMovements] = useState<CashMovement[]>([]);
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   
@@ -69,107 +73,12 @@ const CashClosing: React.FC = () => {
   
   // General States
   const [loading, setLoading] = useState(true);
-  const [previousClosings, setPreviousClosings] = useState<CashClosing[]>([]);
-  const [selectedHistoryClosing, setSelectedHistoryClosing] = useState<CashClosing | null>(null);
-  const [editingClosing, setEditingClosing] = useState<CashClosing | null>(null);
+  const [previousClosings, setPreviousClosings] = useState<CashRegister[]>([]);
+  const [selectedHistoryClosing, setSelectedHistoryClosing] = useState<CashRegister | null>(null);
+  const [editingClosing, setEditingClosing] = useState<CashRegister | null>(null);
   const [historyFilterDate, setHistoryFilterDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
-  const fetchActiveRegister = async () => {
-    if (!user?.negocioId) return;
-    setLoading(true);
-    try {
-      // Find open register (estado = 'pendiente')
-      const { data, error } = await supabase
-        .from('cierres_caja')
-        .select(`
-          *,
-          usuario:usuario_id (nombre_completo)
-        `)
-        .eq('negocio_id', user.negocioId)
-        .eq('estado', 'pendiente')
-        .order('fecha_inicio', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error && error.code !== 'PGRST116') throw error; // Ignore not found
-      
-      setActiveRegister(data || null);
-
-      if (data) {
-        // Fetch movements for this open register
-        const { data: movData, error: movError } = await supabase
-          .from('movimientos_caja')
-          .select('*')
-          .eq('cierre_caja_id', data.id)
-          .order('creado_en', { ascending: false });
-          
-        if (movError) throw movError;
-        setMovements(movData || []);
-        
-        // Fetch current stats based on open register start date and current time
-        await fetchClosingStats(data.fecha_inicio, new Date().toISOString());
-      }
-    } catch (err: any) {
-      console.error('Error fetching active register:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPreviousClosings = async () => {
-    if (!user?.negocioId) return;
-    try {
-      const { data, error } = await supabase
-        .from('cierres_caja')
-        .select(`
-          *,
-          usuario:usuario_id (nombre_completo)
-        `)
-        .eq('negocio_id', user.negocioId)
-        .eq('estado', 'completado')
-        .order('fecha_fin', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      setPreviousClosings(data || []);
-    } catch (err) {
-      console.error('Error fetching previous closings:', err);
-      toast.error('Error al cargar historial');
-    }
-  };
-
-  useEffect(() => {
-    fetchActiveRegister();
-    fetchPreviousClosings();
-  }, [user]);
-
-  // Refetch history when filter changes (optional, or just filter client side)
-  // For simplicity and since limit is 10, let's keep it simple for now or fetch all.
-  // Actually, let's fetch based on date if we want "filtrar por dia".
-  
-  const fetchFilteredHistory = async (date: string) => {
-    if (!user?.negocioId) return;
-    try {
-      const { data, error } = await supabase
-        .from('cierres_caja')
-        .select(`
-          *,
-          usuario:usuario_id (nombre_completo)
-        `)
-        .eq('negocio_id', user.negocioId)
-        .eq('estado', 'completado')
-        .gte('fecha_inicio', `${date}T00:00:00`)
-        .lte('fecha_inicio', `${date}T23:59:59`)
-        .order('fecha_fin', { ascending: false });
-
-      if (error) throw error;
-      setPreviousClosings(data || []);
-    } catch (err) {
-      console.error('Error filtering history:', err);
-    }
-  };
-
-  const fetchClosingStats = async (startISO: string, endISO: string) => {
+  const fetchClosingStats = React.useCallback(async (startISO: string, endISO: string) => {
     if (!user?.negocioId) return;
 
     try {
@@ -191,28 +100,28 @@ const CashClosing: React.FC = () => {
 
       if (salesError) throw salesError;
 
-      let totalSales = 0;
-      let cashSales = 0;
-      const paymentMethods = new Map<string, number>();
-      const products = new Map<string, { quantity: number; total: number }>();
+      let totalSalesRes = 0;
+      let cashSalesRes = 0;
+      const paymentMethodsMap = new Map<string, number>();
+      const productsMap = new Map<string, { quantity: number; total: number }>();
 
-      salesData?.forEach(sale => {
-        totalSales += sale.total;
+      (salesData || []).forEach((sale) => {
+        totalSalesRes += sale.total;
         if (sale.metodo_pago === 'efectivo') {
-          cashSales += sale.total;
+          cashSalesRes += sale.total;
         } else {
-          const currentAmount = paymentMethods.get(sale.metodo_pago) || 0;
-          paymentMethods.set(sale.metodo_pago, currentAmount + sale.total);
+          const currentAmount = paymentMethodsMap.get(sale.metodo_pago) || 0;
+          paymentMethodsMap.set(sale.metodo_pago, currentAmount + sale.total);
         }
 
-        sale.detalle_ventas.forEach((detail: any) => {
-          // detalle_ventas may return producto as an object or array depending on the join
-          const productName = Array.isArray(detail.producto) 
-            ? detail.producto[0]?.nombre 
-            : detail.producto?.nombre || 'Producto Desconocido';
+        (sale.detalle_ventas || []).forEach((detail) => {
+          const productData = detail.producto as unknown as { nombre: string } | { nombre: string }[];
+          const productName = Array.isArray(productData) 
+            ? productData[0]?.nombre 
+            : productData?.nombre || 'Producto Desconocido';
             
-          const current = products.get(productName) || { quantity: 0, total: 0 };
-          products.set(productName, {
+          const current = productsMap.get(productName) || { quantity: 0, total: 0 };
+          productsMap.set(productName, {
             quantity: current.quantity + detail.cantidad,
             total: current.total + (detail.cantidad * detail.precio_unitario)
           });
@@ -220,19 +129,109 @@ const CashClosing: React.FC = () => {
       });
 
       setStats({
-        totalSales,
-        cashSales,
-        otherPaymentSales: Array.from(paymentMethods.entries()).map(([method, amount]) => ({ method, amount })),
+        totalSales: totalSalesRes,
+        cashSales: cashSalesRes,
+        otherPaymentSales: Array.from(paymentMethodsMap.entries()).map(([method, amount]) => ({ method, amount })),
         orderCount: salesData?.length || 0,
-        topProducts: Array.from(products.entries())
+        topProducts: Array.from(productsMap.entries())
           .map(([name, s]) => ({ name, ...s }))
           .sort((a, b) => b.total - a.total).slice(0, 10)
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching closing stats:', err);
       toast.error('Error al calcular ventas actuales');
     }
-  };
+  }, [user?.negocioId]);
+
+  const fetchActiveRegister = React.useCallback(async () => {
+    if (!user?.negocioId) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('cierres_caja')
+        .select(`
+          *,
+          usuario:usuario_id (nombre_completo)
+        `)
+        .eq('negocio_id', user.negocioId)
+        .eq('estado', 'pendiente')
+        .order('fecha_inicio', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      setActiveRegister(data || null);
+
+      if (data) {
+        const { data: movData, error: movError } = await supabase
+          .from('movimientos_caja')
+          .select('*')
+          .eq('cierre_caja_id', data.id)
+          .order('creado_en', { ascending: false });
+          
+        if (movError) throw movError;
+        setMovements(movData || []);
+        
+        await fetchClosingStats(data.fecha_inicio, new Date().toISOString());
+      }
+    } catch (err: unknown) {
+      console.error('Error fetching active register:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.negocioId, fetchClosingStats]);
+
+  const fetchPreviousClosings = React.useCallback(async () => {
+    if (!user?.negocioId) return;
+    try {
+      const { data, error } = await supabase
+        .from('cierres_caja')
+        .select(`
+          *,
+          usuario:usuario_id (nombre_completo)
+        `)
+        .eq('negocio_id', user.negocioId)
+        .eq('estado', 'completado')
+        .order('fecha_fin', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setPreviousClosings(data || []);
+    } catch (err: unknown) {
+      console.error('Error fetching previous closings:', err);
+      toast.error('Error al cargar historial');
+    }
+  }, [user?.negocioId]);
+
+  const fetchFilteredHistory = React.useCallback(async (date: string) => {
+    if (!user?.negocioId) return;
+    try {
+      const { data, error } = await supabase
+        .from('cierres_caja')
+        .select(`
+          *,
+          usuario:usuario_id (nombre_completo)
+        `)
+        .eq('negocio_id', user.negocioId)
+        .eq('estado', 'completado')
+        .gte('fecha_inicio', `${date}T00:00:00`)
+        .lte('fecha_inicio', `${date}T23:59:59`)
+        .order('fecha_fin', { ascending: false });
+
+      if (error) throw error;
+      setPreviousClosings(data || []);
+    } catch (err: unknown) {
+      console.error('Error filtering history:', err);
+    }
+  }, [user?.negocioId]);
+
+  useEffect(() => {
+    if (user?.negocioId) {
+      fetchActiveRegister();
+      fetchPreviousClosings();
+    }
+  }, [user?.negocioId, fetchActiveRegister, fetchPreviousClosings]);
 
   const handleOpenRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,7 +268,7 @@ const CashClosing: React.FC = () => {
       toast.success('Caja abierta exitosamente');
       setBaseAmount('');
       fetchActiveRegister();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error opening register:', err);
       toast.error('Error al abrir la caja');
     } finally {
@@ -359,15 +358,15 @@ const CashClosing: React.FC = () => {
       setStats(null);
       fetchPreviousClosings();
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving closing:', err);
-      toast.error(err.message || 'Error al cerrar la caja');
+      toast.error(err instanceof Error ? err.message : 'Error al cerrar la caja');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDownloadHistoryPDF = async (closing: any) => {
+  const handleDownloadHistoryPDF = async (closing: CashRegister) => {
     try {
       toast.loading('Generando reporte...', { id: 'pdf-gen' });
       
@@ -389,7 +388,7 @@ const CashClosing: React.FC = () => {
       if (detailsError) throw detailsError;
 
       // Map to CashClosingStats structure
-      const stats: CashClosingStats = {
+      const statsObj: CashClosingStats = {
         totalSales: closing.total_ventas || 0,
         cashSales: closing.total_efectivo || 0,
         orderCount: closing.numero_ordenes || 0,
@@ -400,15 +399,15 @@ const CashClosing: React.FC = () => {
         topProducts: []
       };
 
-      generatePDF(closing, stats, movs || []);
+      generatePDF(closing, statsObj, movs || []);
       toast.success('Reporte generado correctamente', { id: 'pdf-gen' });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error generating historical PDF:', err);
       toast.error('Error al generar el reporte PDF', { id: 'pdf-gen' });
     }
   };
 
-  const generatePDF = (register: CashClosing, currentStats: CashClosingStats, currentMovements: CashMovement[]) => {
+  const generatePDF = (register: CashRegister, currentStats: CashClosingStats, currentMovements: CashMovement[]) => {
     const doc = new jsPDF();
     
     doc.setFontSize(20);
@@ -883,10 +882,10 @@ const CashClosing: React.FC = () => {
       <CashClosingHistoryModal
         isOpen={!!selectedHistoryClosing}
         onClose={() => setSelectedHistoryClosing(null)}
-        closing={selectedHistoryClosing}
+        closing={selectedHistoryClosing as any}
         onEdit={(c) => {
           setSelectedHistoryClosing(null);
-          setEditingClosing(c);
+          setEditingClosing(c as any);
         }}
         userRole={user?.rol}
       />
@@ -894,7 +893,7 @@ const CashClosing: React.FC = () => {
       <EditClosingModal
         isOpen={!!editingClosing}
         onClose={() => setEditingClosing(null)}
-        closing={editingClosing}
+        closing={editingClosing as any}
         onSuccess={() => {
           fetchPreviousClosings();
           if (historyFilterDate) fetchFilteredHistory(historyFilterDate);

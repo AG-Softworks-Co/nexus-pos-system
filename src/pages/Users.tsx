@@ -68,7 +68,7 @@ const Users: React.FC = () => {
 
       if (error) throw error;
       setUsers(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching users:', err);
       setError('Error al cargar usuarios');
     } finally {
@@ -169,9 +169,9 @@ const Users: React.FC = () => {
 
       await fetchUsers();
       setShowModal(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error:', err);
-      setError(err.message || "Ha ocurrido un error inesperado al procesar la solicitud.");
+      setError(err instanceof Error ? err.message : "Ha ocurrido un error inesperado al procesar la solicitud.");
     } finally {
       setIsSubmitting(false);
     }
@@ -190,9 +190,9 @@ const Users: React.FC = () => {
       await fetchUsers();
       setDeleteConfirmId(null);
       setSuccessMessage('Usuario eliminado exitosamente');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting user:', err);
-      setError(err.message || 'Error al eliminar usuario');
+      setError(err instanceof Error ? err.message : 'Error al eliminar usuario');
       // Limpiar el estado de confirmación si falla para evitar trabar al usuario
       setDeleteConfirmId(null);
     }

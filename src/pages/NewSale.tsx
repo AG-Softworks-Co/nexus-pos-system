@@ -587,9 +587,30 @@ const NewSale: React.FC = () => {
       }
       
       // Prepare sale data with discount information
-      const saleData: any = {
-        usuario_id: user.id,
-        negocio_id: user.negocioId,
+      interface SaleData {
+        usuario_id: string;
+        negocio_id: string;
+        total: number;
+        metodo_pago: string | null;
+        notas: string | null;
+        es_domicilio: boolean;
+        cliente_id: string | null;
+        direccion_entrega_id: string | null;
+        costo_domicilio: number;
+        estado: string;
+        estado_pago: string;
+        descuento_total?: number;
+        descuento_porcentaje_total?: number;
+        subtotal_antes_descuento?: number;
+        usuario_descuento_id?: string;
+        razon_descuento?: string;
+        fecha_descuento?: string;
+        saldo_pendiente?: number;
+      }
+
+      const saleData: SaleData = {
+        usuario_id: user.id || '',
+        negocio_id: user.negocioId || '',
         total: finalTotal,
         metodo_pago: paymentMethod,
         notas: notes.trim() || null,
@@ -684,9 +705,10 @@ const NewSale: React.FC = () => {
       fetchProducts();
 
       showAlertModal('¡Éxito!', 'Venta completada exitosamente.', 'success');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error completando la venta:', err);
-      showAlertModal('Error', `Error al procesar la venta: ${err.message || 'Por favor, intenta de nuevo.'}`, 'error');
+      const errorMessage = err instanceof Error ? err.message : 'Por favor, intenta de nuevo.';
+      showAlertModal('Error', `Error al procesar la venta: ${errorMessage}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -747,7 +769,7 @@ const NewSale: React.FC = () => {
           <div className="h-10 w-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-200">
             <ShoppingBag className="h-5 w-5 text-white" />
           </div>
-          <h1 className="text-xl font-black text-slate-900 font-outfit uppercase tracking-tight">Caja Nexus</h1>
+          <h1 className="text-xl font-black text-slate-900 font-outfit uppercase tracking-tight">Caja Vendrix</h1>
         </div>
         <button
           onClick={() => setShowMobileCart(true)}
@@ -1348,7 +1370,7 @@ const NewSale: React.FC = () => {
                     </div>
                   </div>
 
-                  {((paymentMethod as string) === 'credito') && !selectedClient && (
+                  {(paymentMethod === 'credito') && !selectedClient && (
                     <div className="bg-rose-50 border border-rose-200 p-8 rounded-[2.5rem] space-y-4 animate-in slide-in-from-top-4 shadow-xl shadow-rose-100">
                       <div className="flex items-center gap-3 pb-4 border-b border-rose-100">
                         <div className="h-10 w-10 bg-rose-600 rounded-xl flex items-center justify-center text-white">

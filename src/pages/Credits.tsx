@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, CreditCard, Calendar, User, DollarSign, AlertTriangle, CheckCircle, Clock, XCircle, ArrowRight, MoreVertical, Wallet, TrendingUp, History, Info, ChevronRight } from 'lucide-react';
+import { Search, CreditCard, AlertTriangle, CheckCircle, Clock, XCircle, Wallet, TrendingUp, History, Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDisplayDate } from '../utils/dateUtils';
@@ -38,7 +38,7 @@ const Credits: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [paymentData, setPaymentData] = useState({
@@ -47,15 +47,9 @@ const Credits: React.FC = () => {
     notas: ''
   });
 
-  useEffect(() => {
-    if (user?.negocioId) {
-      fetchCreditSales();
-    }
-  }, [user]);
-
-  const fetchCreditSales = async () => {
+  const fetchCreditSales = React.useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('ventas')
         .select(`
           id,
@@ -76,44 +70,53 @@ const Credits: React.FC = () => {
         .eq('metodo_pago', 'credito')
         .order('creada_en', { ascending: false });
 
-      if (error) throw error;
-      setCreditSales((data || []).map((sale: any) => ({
-        ...sale,
-        cliente: Array.isArray(sale.cliente) ? sale.cliente[0] : sale.cliente,
-        usuario: Array.isArray(sale.usuario) ? sale.usuario[0] : sale.usuario
-      })));
-    } catch (err: any) {
+      if (fetchError) throw fetchError;
+      setCreditSales((data || []).map((sale) => {
+        const clientData = sale.cliente as unknown as { nombre_completo: string; telefono: string } | { nombre_completo: string; telefono: string }[];
+        const userData = sale.usuario as unknown as { nombre_completo: string } | { nombre_completo: string }[];
+        
+        return {
+          ...sale,
+          cliente: Array.isArray(clientData) ? clientData[0] : clientData,
+          usuario: Array.isArray(userData) ? userData[0] : userData
+        } as CreditSale;
+      }));
+    } catch (err: unknown) {
       console.error('Error fetching credit sales:', err);
-      setError('Error al cargar ventas a crédito');
+      // Removed setError since it was unused in render
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.negocioId]);
+
+  useEffect(() => {
+    if (user?.negocioId) {
+      fetchCreditSales();
+    }
+  }, [user?.negocioId, fetchCreditSales]);
 
   const fetchPartialPayments = async (saleId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('pagos_parciales')
         .select('*')
         .eq('venta_id', saleId)
         .order('fecha_pago', { ascending: false });
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
       setPartialPayments(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching partial payments:', err);
-      setError('Error al cargar pagos parciales');
     }
   };
 
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSale || !user?.id || !user?.negocioId) {
-      setError("No se pudo procesar el pago: falta información.");
       return;
     }
 
-    setError(null);
+
     setIsSubmitting(true);
 
     try {
@@ -122,7 +125,7 @@ const Credits: React.FC = () => {
         throw new Error('Monto inválido');
       }
 
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('pagos_parciales')
         .insert([{
           venta_id: selectedSale.id,
@@ -133,10 +136,10 @@ const Credits: React.FC = () => {
           notas: paymentData.notas || null
         }]);
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       const nuevoSaldo = Math.max(0, selectedSale.saldo_pendiente - monto);
-      const updateData: any = { saldo_pendiente: nuevoSaldo };
+      const updateData: { saldo_pendiente: number; estado_pago?: string; estado?: string } = { saldo_pendiente: nuevoSaldo };
 
       if (nuevoSaldo <= 0) {
         updateData.estado_pago = 'pagado';
@@ -151,8 +154,8 @@ const Credits: React.FC = () => {
       if (showPaymentsModal) await fetchPartialPayments(selectedSale.id);
       setShowPaymentModal(false);
       setPaymentData({ monto: '', metodo_pago: 'efectivo', notas: '' });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      console.error('Error processing payment:', err);
     } finally {
       setIsSubmitting(false);
     }

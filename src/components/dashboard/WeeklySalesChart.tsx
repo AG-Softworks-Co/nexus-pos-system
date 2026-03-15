@@ -1,19 +1,14 @@
 import React from 'react';
-import { BarChart } from 'lucide-react';
 
 interface WeeklySalesChartProps {
   salesData: {
     day: string;
     amount: number;
   }[];
-  title?: string;
-  isHourly?: boolean;
 }
 
 const WeeklySalesChart: React.FC<WeeklySalesChartProps> = ({
-  salesData,
-  title = "Ventas de la Semana",
-  isHourly = false
+  salesData
 }) => {
   const maxSalesValue = Math.max(...salesData.map(day => day.amount));
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, AlertTriangle, Check, X, ArrowLeft } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDisplayDate } from '../../utils/dateUtils';
@@ -43,13 +43,7 @@ const ReturnApprovalModal: React.FC<ReturnApprovalModalProps> = ({ isOpen, onClo
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showRejectForm, setShowRejectForm] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && returnId) {
-      fetchReturnDetails();
-    }
-  }, [isOpen, returnId]);
-
-  const fetchReturnDetails = async () => {
+  const fetchReturnDetails = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -80,7 +74,13 @@ const ReturnApprovalModal: React.FC<ReturnApprovalModalProps> = ({ isOpen, onClo
       if (detailsError) throw detailsError;
 
       // Format details data
-      const formattedDetails = detailsData.map(detail => ({
+      const formattedDetails = detailsData.map((detail: { 
+        id: string; 
+        detalle_venta_id: string; 
+        cantidad_devuelta: number; 
+        precio_unitario: number; 
+        producto: { producto: { nombre: string } } 
+      }) => ({
         id: detail.id,
         detalle_venta_id: detail.detalle_venta_id,
         cantidad_devuelta: detail.cantidad_devuelta,
@@ -94,13 +94,20 @@ const ReturnApprovalModal: React.FC<ReturnApprovalModalProps> = ({ isOpen, onClo
         ...returnData,
         detalles: formattedDetails
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching return details:', err);
-      setError(`Error al cargar los detalles de la devolución: ${err.message}`);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(`Error al cargar los detalles de la devolución: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [returnId]);
+
+  useEffect(() => {
+    if (isOpen && returnId) {
+      fetchReturnDetails();
+    }
+  }, [isOpen, returnId, fetchReturnDetails]);
 
   const handleApprove = async () => {
     if (!user?.id) return;
@@ -127,9 +134,10 @@ const ReturnApprovalModal: React.FC<ReturnApprovalModalProps> = ({ isOpen, onClo
       setTimeout(() => {
         onClose();
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error approving return:', err);
-      setError(`Error al aprobar la devolución: ${err.message}`);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(`Error al aprobar la devolución: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -164,9 +172,10 @@ const ReturnApprovalModal: React.FC<ReturnApprovalModalProps> = ({ isOpen, onClo
       setTimeout(() => {
         onClose();
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error rejecting return:', err);
-      setError(`Error al rechazar la devolución: ${err.message}`);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(`Error al rechazar la devolución: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
