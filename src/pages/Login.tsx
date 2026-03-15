@@ -70,8 +70,8 @@ const Login: React.FC = () => {
 
           {/* Logo y Título */}
           <div className="flex items-center justify-center lg:justify-start space-x-3 mb-12 sm:mb-16">
-            <div className="bg-white/10 p-1 rounded-xl shadow-[0_8px_16px_rgba(79,70,229,0.3)] h-12 w-12 flex items-center justify-center">
-              <img src="/LOGO%20ICONO%20V.png" alt="Vendrix Icon" className="w-full h-full object-cover rounded-lg" />
+            <div className="bg-white p-1 rounded-xl shadow-[0_8px_16px_rgba(0,0,0,0.1)] h-12 w-12 flex items-center justify-center border-2 border-primary-100/50">
+              <img src="/Vsola.png" alt="Vendrix Icon" className="w-full h-full object-cover rounded-lg" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Vendrix POS</h1>
           </div>
@@ -228,8 +228,8 @@ const Login: React.FC = () => {
 
           {/* Branding */}
           <div className="flex items-center space-x-4 animate-fade-in-down">
-            <div className="bg-white/10 backdrop-blur-md p-1 rounded-2xl border border-white/10 shadow-2xl overflow-hidden h-14 w-14 flex items-center justify-center">
-              <img src="/LOGO%20ICONO%20V.png" alt="Vendrix Icon" className="w-full h-full object-cover" />
+            <div className="bg-white shadow-2xl p-1 rounded-2xl border-2 border-white/20 overflow-hidden h-14 w-14 flex items-center justify-center">
+              <img src="/Vsola.png" alt="Vendrix Icon" className="w-full h-full object-cover" />
             </div>
             <div>
               <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">Vendrix POS</h1>

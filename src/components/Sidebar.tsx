@@ -166,8 +166,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     <aside className={`${baseClasses} ${responsiveClasses}`}>
       <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800/60 flex-shrink-0 bg-[#0f111a]">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-white/10 p-1 flex-shrink-0">
-            <img src="/LOGO%20ICONO%20V.png" alt="Vendrix Icon" className="h-full w-full object-cover rounded-md" />
+          <div className="h-8 w-8 rounded-lg bg-white/10 p-1 flex-shrink-0 border border-white/20">
+            <img src="/Vsola.png" alt="Vendrix Icon" className="h-full w-full object-cover rounded-md" />
           </div>
           <span className="text-xl font-bold text-white tracking-tight">
             Vendrix POS

@@ -51,8 +51,8 @@ const Header: React.FC<HeaderProps> = ({
           </button>
 
           <div className="nexus-header-brand">
-            <div className="nexus-header-logo-mark p-0.5 overflow-hidden">
-              <img src="/LOGO%20ICONO%20V.png" alt="Vendrix Icon" className="h-full w-full object-cover rounded-sm" />
+            <div className="nexus-header-logo-mark p-0.5 overflow-hidden border border-primary-100/30">
+              <img src="/Vsola.png" alt="Vendrix Icon" className="h-full w-full object-cover rounded-sm" />
             </div>
             <span className="nexus-header-logo-text">Vendrix POS</span>
           </div>
